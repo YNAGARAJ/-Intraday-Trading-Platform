@@ -64,3 +64,9 @@ class OrderIdempotencyError(TradingSystemError):
     """Raised by the Execution Engine (M14) on a duplicate client_order_id without a
     corresponding broker-side resolution -- signals a retry-safety invariant violation.
     """
+
+
+class DuplicateIndicatorError(TradingSystemError):
+    """Raised by the indicator registry (M04) if two definition files register the
+    same indicator name -- a silently shadowed indicator could mean a trading signal
+    is evaluated against the wrong calculation."""

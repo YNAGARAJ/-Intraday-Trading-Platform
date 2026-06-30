@@ -147,3 +147,40 @@ PAPER_TRADING_MIN_DAYS: Final[int] = 20
 PAPER_TRADING_MIN_SHARPE: Final[float] = 1.5
 PAPER_TRADING_MIN_WIN_RATE_PCT: Final[float] = 50.0
 PAPER_TRADING_MAX_DRAWDOWN_PCT: Final[float] = 5.0
+
+# --- Core Technical Indicator Engine (M04) ---
+EMA_PERIODS: Final[tuple[int, ...]] = (9, 21, 50, 200)
+ADX_PERIOD: Final[int] = 14
+RSI_PERIOD: Final[int] = 14
+MACD_FAST_PERIOD: Final[int] = 12
+MACD_SLOW_PERIOD: Final[int] = 26
+MACD_SIGNAL_PERIOD: Final[int] = 9
+STOCH_FASTK_PERIOD: Final[int] = 14
+STOCH_SLOWK_PERIOD: Final[int] = 3
+STOCH_SLOWD_PERIOD: Final[int] = 3
+CCI_PERIOD: Final[int] = 20
+MFI_PERIOD: Final[int] = 14
+ROC_PERIOD: Final[int] = 10
+WILLR_PERIOD: Final[int] = 14
+# ATR_PERIOD (14) already defined above under "Stop-Loss & Target Rules" -- M04's
+# ATR indicator and M12's stop-loss sizing intentionally share the same period.
+BBANDS_PERIOD: Final[int] = 20
+BBANDS_STDDEV: Final[float] = 2.0
+VWAP_BAND_STDDEV_MULTIPLIER: Final[float] = 2.0
+"""Spec lists 'VWAP bands' with no explicit width -- 2 standard deviations is the
+common default (~95% coverage under a normal assumption), consistent with
+BBANDS_STDDEV above."""
+
+CAMARILLA_RANGE_MULTIPLIER: Final[float] = 1.1
+"""Standard Camarilla pivot constant (R1-R4/S1-S4 are this times the prior range,
+divided by 12/6/4/2 respectively)."""
+
+INDICATOR_LATENCY_BUDGET_MS: Final[float] = 50.0
+"""M04 VERIFY threshold: compute-all-indicators + Redis-cache-write must stay under
+this. Excludes the upstream DB query, which is I/O-bound and only runs once per
+candle close, not on the signal-evaluation hot path."""
+
+INDICATOR_LOOKBACK_CANDLES: Final[int] = 250
+"""Default history window fetched per compute call -- comfortably covers the longest
+single-indicator requirement (EMA_200) plus warm-up margin for TA-Lib's unstable
+period at the start of any series."""

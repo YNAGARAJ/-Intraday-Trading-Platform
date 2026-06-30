@@ -53,14 +53,19 @@ requests = "2.31.0"                 # NSE/ASX holiday calendar fetch (M02); Kite
 yfinance = "0.2.37"                 # Dev historical backfill only; NEVER used for live entry signals
 pandas = "2.2.1"                    # Tabular OHLCV manipulation across the stack
 numpy = "1.26.4"                    # Vectorized tick aggregation (hot path)
-ta-lib = "0.4.28"                   # Core technical indicators (M04); requires system TA-Lib C lib
-pandas-ta = "0.4.71b0"              # Extended indicators, multi-timeframe computation (M04).
-                                     # DEVIATION from MASTER_BUILD_PROMPT_FINAL.MD's 0.3.14b0 pin:
-                                     # that version no longer exists on PyPI at all (confirmed via
-                                     # PyPI JSON API during M01 build) -- the upstream project
-                                     # appears to have renumbered its release line. Pinned to the
-                                     # latest available pre-release instead. Re-verify API
-                                     # compatibility when M04 actually imports this package.
+TA-Lib = "0.6.8"                    # Core technical indicators (M04). DEVIATION from
+                                     # MASTER_BUILD_PROMPT_FINAL.MD's 0.4.28 pin: that version has no
+                                     # prebuilt wheel and requires compiling the TA-Lib C source, which
+                                     # fails to link against modern GCC (ADR-004, deferred from M01).
+                                     # 0.6.8 ships a prebuilt manylinux wheel for Python 3.12 with the C
+                                     # library bundled -- no system TA-Lib install needed. See ADR-009.
+                                     # pandas-ta is DROPPED (was pinned 0.4.71b0 in M01): its only
+                                     # PyPI-available releases (0.4.67b0/0.4.71b0) hard-require
+                                     # numpy>=2.2.6 and pandas>=2.3.2, which would force a breaking
+                                     # upgrade across the already-verified M01-M03 stack (numpy==1.26.4,
+                                     # pandas==2.2.1) for indicators (VWAP, VWAP bands, volume delta,
+                                     # pivot points) that aren't TA-Lib functions anyway and are
+                                     # implemented directly with NumPy/pandas instead. See ADR-009.
 
 # --- Reporting / dashboard (M21-M22) ---
 fpdf2 = "2.7.8"                     # Daily PDF report generation (M21)

@@ -10,7 +10,7 @@ build status.
 `TRADING_MODE=PAPER` is the default everywhere. `TRADING_MODE=LIVE` is never a default
 and must be set explicitly alongside `LIVE_TRADING_CONFIRMED=true`.
 
-## Current state: M03 -- High-Throughput Buffering & Storage
+## Current state: M04 -- Core Technical Indicator Engine
 
 What exists so far:
 
@@ -29,6 +29,14 @@ What exists so far:
   (`shared/storage/repositories.py` -- all DB access goes through it), tick validation
   (out-of-sequence/corrupt/zero-price rejection), a SQLite failover buffer for RULE 5
   DB-outage handling, and a yfinance dev-only historical backfill CLI.
+- **M04:** the indicator engine (`shared/indicators/`) -- an extensible registry
+  (`@register_indicator`, one file per indicator under `definitions/`, zero other
+  changes to add a new one) covering EMA(9,21,50,200), ADX(14), RSI(14), MACD(12,26,9),
+  Stochastic(14,3), CCI(20), MFI(14), ROC(10), Williams %R(14), ATR(14), BB(20,2), OBV,
+  VWAP, VWAP bands, Volume Delta, and Pivot points (Standard/Fibonacci/Camarilla) --
+  pure TA-Lib + NumPy/pandas, zero LLM (RULE 4). Results cache in Redis (30s TTL).
+  TA-Lib's build issue from ADR-004 is resolved (prebuilt wheel); pandas-ta is dropped
+  -- see ADR-009.
 
 No trading/signal logic exists yet -- that starts at M11.
 
@@ -51,7 +59,7 @@ pip install --upgrade pip
 pip install \
   "pydantic==2.6.4" "pydantic-settings==2.2.1" "pyyaml==6.0.1" "structlog==24.1.0" \
   "redis==5.0.3" "protobuf==4.25.3" "psycopg2-binary==2.9.9" "requests==2.31.0" \
-  "pandas==2.2.1" "numpy==1.26.4" "yfinance==0.2.37" \
+  "pandas==2.2.1" "numpy==1.26.4" "yfinance==0.2.37" "TA-Lib==0.6.8" \
   "pytest==8.1.1" "pytest-asyncio==0.23.5" "pytest-cov==4.1.0" \
   "ruff==0.3.2" "mypy==1.9.0" \
   "grpcio-tools==1.62.1" "types-protobuf==4.25.0.20240417" "types-PyYAML" \
@@ -105,6 +113,26 @@ ADR-007 for why the 30-day case requests 5-minute (not 1-minute) granularity, an
 `test_backfill_30_days_then_query_5m_count_correct` for a synthetic-data proof of the
 storage layer's own round-trip correctness, independent of yfinance's availability.
 
+## Running the indicator engine CLI
+
+```bash
+source .venv/bin/activate
+docker run --rm -d --name trading-test-timescale -p 5433:5432 \
+    -e POSTGRES_USER=trading -e POSTGRES_PASSWORD=trading \
+    -e POSTGRES_DB=trading_ts timescale/timescaledb:2.14.0-pg16
+docker run --rm -d --name trading-test-redis -p 6379:6379 redis:7.2.4-alpine
+python -m shared.indicators --symbol RELIANCE.NS --exchange NSE --timeframe 5m
+```
+
+Queries the last `INDICATOR_LOOKBACK_CANDLES` (250) candles for the given
+symbol/exchange/timeframe, computes all 16 registered indicators, caches the result in
+Redis (30s TTL), and logs each indicator's values plus the compute+cache latency. If
+nothing has been backfilled for that symbol yet, it reports `no_candles_found` and
+exits cleanly rather than crashing -- same graceful-degradation pattern as M03's
+backfill CLI. See `tests/integration/indicators/test_indicators_live.py` for the
+literal M04 VERIFY command proof (synthetic data, since yfinance is rate-limited here
+-- same caveat as M03).
+
 ## Verifying the build (exact commands)
 
 ```bash
@@ -135,7 +163,10 @@ python -m shared.session_manager
 # 7. Storage backfill CLI (M03 VERIFY command -- requires TimescaleDB from step 5)
 python -m shared.storage.backfill --symbol RELIANCE.NS --days 30
 
-# 8. Full stack
+# 8. Indicator engine CLI (M04 VERIFY command -- requires TimescaleDB+Redis from step 5)
+python -m shared.indicators --symbol RELIANCE.NS --exchange NSE --timeframe 5m
+
+# 9. Full stack
 docker build -f infra/docker/Dockerfile.base -t trading-system-base:dev .
 docker compose -f infra/docker-compose.yml up -d --build
 docker compose -f infra/docker-compose.yml ps     # all should be Up/healthy
@@ -144,9 +175,12 @@ curl http://localhost:3000/api/health              # Grafana
 docker compose -f infra/docker-compose.yml down
 ```
 
-Expected: 191 tests passing (189 without Redis/TimescaleDB/network, with up to 3
-skipping depending on what's reachable), 99% coverage on `shared/` + `apps/` (100% on
-`shared/storage/`), ruff and mypy both clean, all 7 compose services reach Up/healthy.
+Expected: 226 tests total -- 224 passing + 2 skipped (ASX holiday endpoint, yfinance
+rate-limited) when Redis/TimescaleDB are both reachable; 200 passing + 26 skipped
+otherwise (everything needing those services skips cleanly rather than failing). 99%
+coverage on `shared/` + `apps/` (100% on `shared/storage/`, 99% on
+`shared/indicators/`), ruff and mypy both clean, all 7 compose services reach
+Up/healthy.
 
 ## Environment variables
 
@@ -154,15 +188,17 @@ See [`.env.example`](.env.example) at the repo root for the full list, grouped b
 module that owns each variable. Only the M01 section
 (`APP_ID`/`ENVIRONMENT`/`LOG_LEVEL`/`TRADING_MODE`/`LIVE_TRADING_CONFIRMED`/`REDIS_URL`/
 `POSTGRES_DSN`/`TIMESCALE_DSN`) is actually read by code today; the rest documents
-future modules' variables for discoverability. M02 and M03 introduced no new env vars.
+future modules' variables for discoverability. M02, M03, and M04 introduced no new env
+vars.
 
 ## Known follow-ups (tracked in PROGRESS.md / ARCHITECTURE_DECISIONS.md)
 
 - `poetry.lock` not yet generated -- `infra/docker/Dockerfile.base` currently installs
   a minimal pinned subset via direct `pip install`, not the full `pyproject.toml`
   manifest, after three pin-drift/toolchain build failures during M01 (see ADR-004).
-- TA-Lib C library compilation needs a real fix when M04 (indicator engine) is built --
-  the spec's suggested 0.4.0 source build fails to link against modern GCC.
+  `Dockerfile.base` does not yet include TA-Lib/numpy/pandas -- the app containers
+  don't import `shared.indicators` yet (that starts at M11); add them there when a
+  containerized service first needs the indicator engine.
 - ASX's real holiday-calendar API endpoint is unconfirmed (current implementation
   404s) -- `SessionStateMachine` for Australia will raise `CalendarUnavailableError`
   on every weekday until this is fixed. This is a known, visible, fail-closed
@@ -171,3 +207,10 @@ future modules' variables for discoverability. M02 and M03 introduced no new env
   for every ticker tried, not just NSE symbols -- the backfill CLI degrades gracefully
   (`rows=0`) rather than crashing; re-verify reachability in your actual deployment
   environment before relying on it.
+- `pandas-ta` is dropped (was pinned 0.4.71b0 in M01) -- its only PyPI releases force
+  numpy>=2.2.6/pandas>=2.3.2, breaking the already-verified M01-M03 stack; every
+  required indicator is covered by TA-Lib (now resolved via prebuilt wheel, see
+  ADR-009) or hand-implemented NumPy/pandas instead.
+- Volume Delta (`shared/indicators/definitions/volume_delta.py`) is a candle-direction
+  proxy (signed volume by close-vs-open), not true tick-level aggressor-side volume --
+  the `ticks` table has bid/ask but no trade-direction flag yet (would need M16).

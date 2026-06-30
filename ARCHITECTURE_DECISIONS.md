@@ -252,3 +252,39 @@ to the user per RULE 10).
   (merging raw rows at query time) -- acceptable here since OHLCV queries are not on the < 100ms
   pure-Python signal hot path (RULE 4); they're called by indicator/signal code before that hot
   path runs, not inside it.
+
+---
+
+### ADR-009: TA-Lib resolved via prebuilt wheel; pandas-ta dropped in favor of NumPy/pandas
+- **Date:** 2026-06-30
+- **Module:** M04
+- **Context:** ADR-004 (M01) deferred TA-Lib to M04 after the spec's pinned `ta-lib==0.4.28`
+  failed to build from source -- the bundled C library's `gen_code` tool doesn't link against
+  modern GCC. On revisiting for M04: `pip install TA-Lib` resolved a prebuilt manylinux wheel,
+  version 0.6.8, for Python 3.12 with the C library bundled -- no system install or compilation
+  needed, confirmed by actually importing it and computing an EMA. Separately, the spec also
+  calls for `pandas-ta` (extended indicators, multi-timeframe). Both versions currently on PyPI
+  (0.4.67b0, 0.4.71b0 -- 0.3.14b0 from the spec no longer exists, per ADR-004) hard-require
+  `numpy>=2.2.6` and `pandas>=2.3.2`. Installing it pulled in numpy 2.2.6 and pandas 3.0.3,
+  silently replacing the pinned numpy==1.26.4/pandas==2.2.1 that M01-M03's 189 passing tests were
+  built and verified against -- confirmed by reproducing the upgrade and watching pip's own
+  dependency-conflict warning when reverting.
+- **Decision:** Pin `TA-Lib==0.6.8` (replaces the spec's `ta-lib==0.4.28`). Drop `pandas-ta`
+  entirely rather than force a numpy/pandas major-version bump across the whole stack. Every
+  indicator the spec lists is either a direct TA-Lib function (EMA, ADX, RSI, MACD, Stochastic,
+  CCI, MFI, ROC, Williams %R, ATR, BBANDS, OBV) or not a TA-Lib/pandas-ta function at all (VWAP,
+  VWAP bands, Volume Delta, Pivot points -- Standard/Fibonacci/Camarilla), so pandas-ta wasn't
+  actually load-bearing for anything in the required indicator set; the latter four are
+  implemented directly with NumPy/pandas in `shared/indicators/definitions/`.
+- **Alternatives considered:** (1) Bump numpy/pandas project-wide to satisfy pandas-ta -- rejected
+  as unnecessary risk to the already-verified M01-M03 stack (189 green tests) for a dependency
+  that turned out not to supply any indicator the spec actually requires. (2) Keep pandas-ta
+  pinned but unused/uninstalled "for future modules" -- rejected as dead weight; nothing later in
+  the build plan (M06-M09) has been shown to need it either, and adding it back is a one-line
+  pyproject.toml change if a real need appears.
+- **Consequences:** `shared/indicators/` has zero pandas-ta dependency. If a future module needs
+  a pandas-ta-specific indicator not easily hand-rolled, revisit this decision then (and budget
+  for re-verifying the full numpy/pandas stack bump at that point, not silently). Volume Delta is
+  a candle-direction proxy (signed volume by close-vs-open), not true tick-level aggressor-side
+  volume -- documented in `shared/indicators/definitions/volume_delta.py`; the latter would need
+  bid/ask-aware tick classification from M16 (Data Ingestion Agent), not available yet.
