@@ -70,3 +70,14 @@ class DuplicateIndicatorError(TradingSystemError):
     """Raised by the indicator registry (M04) if two definition files register the
     same indicator name -- a silently shadowed indicator could mean a trading signal
     is evaluated against the wrong calculation."""
+
+
+class InstrumentFetchError(TradingSystemError):
+    """Raised by an `InstrumentSource` (M05) when a live instrument-master fetch
+    fails -- the repository's last-refreshed data remains the fallback, mirroring
+    M02's holiday-cache pattern."""
+
+
+class CorporateActionFetchError(TradingSystemError):
+    """Raised by a `CorporateActionSource` (M05) when a live corporate-actions fetch
+    fails or returns data this system can't safely parse."""

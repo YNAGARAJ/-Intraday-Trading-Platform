@@ -1,0 +1,31 @@
+# Manual corporate-action overrides (M05).
+#
+# For edge cases the live NSE/ASX feeds miss or get wrong -- MASTER_BUILD_PROMPT_FINAL.MD
+# explicitly calls for this as the fallback alongside the live feeds. Applied LAST during
+# a refresh (see shared/instruments/service.py's refresh_corporate_actions), so an entry
+# here always overwrites a live-fetched row for the same
+# (symbol, exchange, ex_date, action_type) -- see the UNIQUE constraint comment in
+# shared/storage/schema.sql for why that's safe to rely on.
+#
+# This file is checked into git (like apps/*/config.yaml) -- it's not a secret, it's
+# curated reference data. Empty by default; add entries as real edge cases are found.
+#
+# Schema per entry:
+#   symbol: str                                          (required)
+#   exchange: "NSE" | "ASX"                               (required)
+#   ex_date: "YYYY-MM-DD"                                 (required)
+#   action_type: SPLIT | BONUS | DIVIDEND | SYMBOL_CHANGE (required)
+#   ratio_numerator: float       # SPLIT/BONUS only -- new shares per ratio_denominator old
+#   ratio_denominator: float     # SPLIT/BONUS only -- old shares held
+#   dividend_amount: float       # DIVIDEND only -- cash amount per share
+#   new_symbol: str              # SYMBOL_CHANGE only -- the symbol traded under after ex_date
+#
+# Example (a 1:2 NSE split -- delete the leading "# " on each line to activate):
+# - symbol: EXAMPLE
+#   exchange: NSE
+#   ex_date: "2024-01-01"
+#   action_type: SPLIT
+#   ratio_numerator: 2
+#   ratio_denominator: 1
+
+[]

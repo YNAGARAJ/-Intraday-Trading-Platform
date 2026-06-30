@@ -10,7 +10,7 @@ build status.
 `TRADING_MODE=PAPER` is the default everywhere. `TRADING_MODE=LIVE` is never a default
 and must be set explicitly alongside `LIVE_TRADING_CONFIRMED=true`.
 
-## Current state: M04 -- Core Technical Indicator Engine
+## Current state: M05 -- Instrument Master & Corporate Actions
 
 What exists so far:
 
@@ -37,6 +37,15 @@ What exists so far:
   pure TA-Lib + NumPy/pandas, zero LLM (RULE 4). Results cache in Redis (30s TTL).
   TA-Lib's build issue from ADR-004 is resolved (prebuilt wheel); pandas-ta is dropped
   -- see ADR-009.
+- **M05:** the instrument master & corporate actions module (`shared/instruments/`) --
+  canonical instrument list (symbol, exchange, lot size, tick size, ISIN) from live
+  NSE/ASX feeds, corporate-action history (split/bonus/dividend/symbol-change) from a
+  live NSE feed plus a checked-in manual override table for edge cases (and for ASX,
+  which has no confirmed bulk corporate-actions endpoint -- see ADR-010), and a
+  back-adjustment function (`shared.instruments.adjustment.adjusted_candles`) that
+  downstream modules (M04/M06/M07/M08) call instead of reading raw OHLCV directly, so
+  indicators/patterns/backtests/regime classification don't silently corrupt around
+  ex-dates.
 
 No trading/signal logic exists yet -- that starts at M11.
 
@@ -133,6 +142,26 @@ backfill CLI. See `tests/integration/indicators/test_indicators_live.py` for the
 literal M04 VERIFY command proof (synthetic data, since yfinance is rate-limited here
 -- same caveat as M03).
 
+## Running the instrument master CLI
+
+```bash
+source .venv/bin/activate
+docker run --rm -d --name trading-test-timescale -p 5433:5432 \
+    -e POSTGRES_USER=trading -e POSTGRES_PASSWORD=trading \
+    -e POSTGRES_DB=trading_ts timescale/timescaledb:2.14.0-pg16
+python -m shared.instruments --symbol RELIANCE --exchange NSE
+```
+
+Refreshes both exchanges' live instrument master and NSE's live corporate actions
+(plus manual overrides), then prints the given symbol's instrument record and full
+corporate-action history. A live-fetch failure for one source is logged and skipped,
+not fatal -- the other refreshes and the lookup still proceed. See
+`tests/integration/instruments/test_instruments_live.py` for the literal M05 VERIFY
+command proof (a synthetic but realistic split, since asserting against a moving
+real-world split's exact ratio would make the test non-deterministic over time) and
+`tests/integration/test_instruments_live_sources.py` for live NSE/ASX reachability
+checks.
+
 ## Verifying the build (exact commands)
 
 ```bash
@@ -166,7 +195,10 @@ python -m shared.storage.backfill --symbol RELIANCE.NS --days 30
 # 8. Indicator engine CLI (M04 VERIFY command -- requires TimescaleDB+Redis from step 5)
 python -m shared.indicators --symbol RELIANCE.NS --exchange NSE --timeframe 5m
 
-# 9. Full stack
+# 9. Instrument master CLI (M05 VERIFY command -- requires TimescaleDB from step 5)
+python -m shared.instruments --symbol RELIANCE --exchange NSE
+
+# 10. Full stack
 docker build -f infra/docker/Dockerfile.base -t trading-system-base:dev .
 docker compose -f infra/docker-compose.yml up -d --build
 docker compose -f infra/docker-compose.yml ps     # all should be Up/healthy
@@ -175,12 +207,11 @@ curl http://localhost:3000/api/health              # Grafana
 docker compose -f infra/docker-compose.yml down
 ```
 
-Expected: 226 tests total -- 224 passing + 2 skipped (ASX holiday endpoint, yfinance
-rate-limited) when Redis/TimescaleDB are both reachable; 200 passing + 26 skipped
-otherwise (everything needing those services skips cleanly rather than failing). 99%
-coverage on `shared/` + `apps/` (100% on `shared/storage/`, 99% on
-`shared/indicators/`), ruff and mypy both clean, all 7 compose services reach
-Up/healthy.
+Expected: 299 tests total -- 297 passing + 2 skipped (ASX holiday endpoint, yfinance
+rate-limited) when Redis/TimescaleDB are both reachable; fewer passing + more skipped
+otherwise (everything needing those services, or live NSE/ASX network access, skips
+cleanly rather than failing). 98% coverage on `shared/` + `apps/`, ruff and mypy both
+clean, all 7 compose services reach Up/healthy.
 
 ## Environment variables
 
@@ -188,8 +219,7 @@ See [`.env.example`](.env.example) at the repo root for the full list, grouped b
 module that owns each variable. Only the M01 section
 (`APP_ID`/`ENVIRONMENT`/`LOG_LEVEL`/`TRADING_MODE`/`LIVE_TRADING_CONFIRMED`/`REDIS_URL`/
 `POSTGRES_DSN`/`TIMESCALE_DSN`) is actually read by code today; the rest documents
-future modules' variables for discoverability. M02, M03, and M04 introduced no new env
-vars.
+future modules' variables for discoverability. M02-M05 introduced no new env vars.
 
 ## Known follow-ups (tracked in PROGRESS.md / ARCHITECTURE_DECISIONS.md)
 
@@ -214,3 +244,14 @@ vars.
 - Volume Delta (`shared/indicators/definitions/volume_delta.py`) is a candle-direction
   proxy (signed volume by close-vs-open), not true tick-level aggressor-side volume --
   the `ticks` table has bid/ask but no trade-direction flag yet (would need M16).
+- No reliable bulk ASX corporate-actions endpoint was found reachable from this build's
+  sandbox after trying several plausible URLs -- ASX split/bonus/dividend data relies
+  entirely on the manual override table (`shared/instruments/manual_overrides.yaml`)
+  for now. NSE's instrument master and corporate-actions feeds are both confirmed
+  live and working (real splits/bonuses/dividends fetched and parsed correctly). See
+  ADR-010.
+- The adjustment engine (`shared/instruments/adjustment.py`) only price-adjusts
+  SPLIT/BONUS actions. DIVIDEND and SYMBOL_CHANGE are recorded but not applied --
+  a correct dividend (total-return) adjustment needs point-in-time price data this
+  function deliberately doesn't fetch; symbol-change history-stitching has no
+  downstream consumer yet. See ADR-010.

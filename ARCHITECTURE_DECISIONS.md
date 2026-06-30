@@ -288,3 +288,64 @@ to the user per RULE 10).
   a candle-direction proxy (signed volume by close-vs-open), not true tick-level aggressor-side
   volume -- documented in `shared/indicators/definitions/volume_delta.py`; the latter would need
   bid/ask-aware tick classification from M16 (Data Ingestion Agent), not available yet.
+
+---
+
+### ADR-010: Instrument master & corporate actions -- sources, schema placement, and
+adjustment scope
+- **Date:** 2026-06-30
+- **Module:** M05
+- **Context:** Four related decisions came up building the instrument master and corporate
+  actions module, each verified against real endpoints/data rather than assumed:
+  1. **Live data sources.** NSE's archived equity list
+     (`archives.nseindia.com/content/equities/EQUITY_L.csv`) and corporate-actions API
+     (`nseindia.com/api/corporates-corporateActions`, same cookie-bootstrap pattern as M02's
+     NSE holiday source) both confirmed live and reachable, including ISIN, lot size, and
+     real split/bonus/dividend history (e.g. a real fetch found PGIL's actual 10->5 face-value
+     split and RELIANCE's actual 2025/2026 dividends). ASX's listed-companies CSV
+     (`asx.com.au/asx/research/ASXListedCompanies.csv`) is also live, but has no ISIN, lot
+     size, or tick size fields, and no bulk corporate-actions endpoint was found reachable from
+     this build's sandbox after trying several plausible URLs (mirrors M02's ASX holiday
+     situation) -- the one working per-symbol endpoint
+     (`asx.api.markitdigital.com/.../key-statistics`) exposes a dividend's ex/record/pay
+     *dates* but not its *amount*, which `CorporateAction`'s own validation requires, so it
+     can't construct a usable DIVIDEND action either.
+  2. **Schema placement.** `instruments`/`corporate_actions` are plain relational tables
+     (reference data, not a time series) added to `shared/storage/schema.sql` -- the existing
+     single TimescaleDB connection's schema file -- rather than a separate
+     `shared/instruments/schema.sql` with its own `apply_schema()` call. The `postgres`
+     (pgvector) service was considered and rejected: the spec scopes it explicitly to "trade
+     log, audit, backtest results, episodic memory," not instrument reference data.
+  3. **Manual-override precedence.** `corporate_actions` has a UNIQUE constraint on
+     `(symbol, exchange, ex_date, action_type)` *without* `source` in the key, so a later
+     upsert replaces an earlier one for the same logical event. `refresh_corporate_actions`
+     always writes live-fetched rows first, then manual overrides last -- precedence is just
+     write ordering, not read-time filtering logic.
+  4. **Adjustment scope.** Only SPLIT and BONUS adjust the price/volume series
+     (`shared/instruments/adjustment.py`). DIVIDEND is recorded but not applied: a correct
+     cash-dividend (total-return) adjustment needs the close price the day before ex-date,
+     which depends on point-in-time data this pure function deliberately doesn't fetch, and
+     the spec's own VERIFY command only tests a split. SYMBOL_CHANGE is recorded but doesn't
+     stitch a renamed symbol's history onto its predecessor's -- no downstream module needs
+     that yet.
+- **Decision:** Implement NSE sources fully (both instrument master and corporate actions,
+  live-verified). Implement ASX's instrument master fully (live-verified, with ISIN/lot
+  size/tick size left `None` and documented why). Implement `ASXCorporateActionSource` as a
+  real, callable, per-symbol attempt against the one working endpoint rather than an immediate
+  stub -- it returns `[]` today (no amount field available) but the attempt is genuine and
+  testable if that endpoint changes. ASX split/bonus/dividend data relies on the manual
+  override table (`shared/instruments/manual_overrides.yaml`) for now, per the spec's own
+  explicit allowance for one. Schema lives in `shared/storage/schema.sql`. Manual overrides
+  win via write-ordering, not a read-time precedence rule. Adjustment covers SPLIT/BONUS only.
+- **Alternatives considered:** Scraping ASX announcement PDFs for corporate-action data --
+  rejected as a much larger, fragile undertaking (unstructured PDF parsing) for a build-time
+  decision better revisited if a real need appears. Applying a same-day dividend adjustment
+  using the day's own close as an approximation of "close before ex-date" -- rejected as
+  introducing an admittedly-wrong number into a price series, worse than recording the
+  dividend but not adjusting for it.
+- **Consequences:** Australia's automatic corporate-action coverage is split/bonus/dividend-free
+  until either ASX exposes a usable bulk feed or enough manual overrides are curated -- a known,
+  visible limitation (logged via `asx_corporate_actions_no_symbols`), not a silent gap. Any
+  future module needing dividend-adjusted (total-return) series or symbol-change history
+  stitching must extend `shared/instruments/adjustment.py` rather than assume it's already
+  handled.

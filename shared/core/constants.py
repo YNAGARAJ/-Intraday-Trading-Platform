@@ -184,3 +184,17 @@ INDICATOR_LOOKBACK_CANDLES: Final[int] = 250
 """Default history window fetched per compute call -- comfortably covers the longest
 single-indicator requirement (EMA_200) plus warm-up margin for TA-Lib's unstable
 period at the start of any series."""
+
+# --- Instrument Master & Corporate Actions (M05) ---
+NSE_EQUITY_TICK_SIZE: Final[float] = 0.05
+"""NSE's standard equity tick size in INR -- a fixed exchange-wide constant. ASX's
+tick size is price-tiered (varies by price band), not a single instrument-level
+value, so `Instrument.tick_size` is left `None` for ASX here; the tiered lookup
+belongs to M14 (Order Execution Engine), the module that actually needs to round an
+order price to a valid increment, not to the instrument master."""
+
+CORPORATE_ACTIONS_REFRESH_WINDOW_DAYS: Final[int] = 365
+"""How far back NSECorporateActionSource looks when refreshing -- one year is enough
+to catch any action whose ex-date could still affect an indicator's lookback window
+(the longest is EMA_200 on 1h candles, ~8 trading days) with generous margin for
+catching up after a missed refresh."""

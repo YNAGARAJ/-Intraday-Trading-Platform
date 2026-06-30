@@ -131,3 +131,44 @@ SELECT add_continuous_aggregate_policy('ohlcv_1h',
     end_offset => INTERVAL '1 hour',
     schedule_interval => INTERVAL '1 hour',
     if_not_exists => TRUE);
+
+-- ---------------------------------------------------------------------------
+-- Instrument master & corporate actions (M05) -- plain relational tables, not
+-- hypertables: this is reference/dimension data refreshed daily, not a time series.
+-- Lives in this file (the single TimescaleDB connection's schema) rather than a
+-- separate shared/instruments/schema.sql so there's one apply_schema() call and one
+-- schema file for the whole TimescaleDB instance -- see ADR-010.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS instruments (
+    symbol      TEXT NOT NULL,
+    exchange    TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    isin        TEXT,
+    lot_size    INTEGER,
+    tick_size   DOUBLE PRECISION,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (symbol, exchange)
+);
+
+CREATE TABLE IF NOT EXISTS corporate_actions (
+    id                  BIGSERIAL PRIMARY KEY,
+    symbol              TEXT NOT NULL,
+    exchange            TEXT NOT NULL,
+    ex_date             DATE NOT NULL,
+    action_type         TEXT NOT NULL,
+    ratio_numerator     DOUBLE PRECISION,
+    ratio_denominator   DOUBLE PRECISION,
+    dividend_amount     DOUBLE PRECISION,
+    new_symbol          TEXT,
+    source              TEXT NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- One logical event per (symbol, exchange, ex_date, action_type) -- `source` is
+    -- deliberately NOT part of this key, so a later upsert (e.g. a MANUAL override
+    -- applied after a live fetch) replaces the live-fetched row instead of
+    -- coexisting beside it. See shared/instruments/service.py's refresh ordering.
+    UNIQUE (symbol, exchange, ex_date, action_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_corporate_actions_symbol
+    ON corporate_actions (symbol, exchange, ex_date);

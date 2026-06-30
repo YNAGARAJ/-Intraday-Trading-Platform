@@ -74,3 +74,14 @@ class BrokerName(str, Enum):
     PAPER = "paper"
     KITE = "kite"
     IBKR = "ibkr"
+
+
+class CorporateActionType(str, Enum):
+    """Instrument Master & Corporate Actions (M05). SPLIT and BONUS both adjust
+    historical price/volume series (see shared/instruments/adjustment.py); DIVIDEND
+    and SYMBOL_CHANGE are recorded but not price-adjusted -- see ADR-010."""
+
+    SPLIT = "SPLIT"
+    BONUS = "BONUS"
+    DIVIDEND = "DIVIDEND"
+    SYMBOL_CHANGE = "SYMBOL_CHANGE"
