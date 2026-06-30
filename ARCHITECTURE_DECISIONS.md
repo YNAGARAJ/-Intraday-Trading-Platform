@@ -36,12 +36,40 @@ to the user per RULE 10).
 
 ---
 
-## Open items (must be resolved before go-live; tracked here per spec RULE 5 / RULE 10)
+### ADR-002: DR posture for total EC2/AZ instance loss
+- **Date:** 2026-06-30
+- **Module:** N/A (applies system-wide; revisited at M23)
+- **Context:** RULE 5 requires an explicit, recorded DR posture for total instance/AZ loss, since
+  in-process Redis/SQLite buffering does not survive the host dying. Left undecided by the spec
+  for the user to choose.
+- **Decision:** **Accepted risk, manual restart, no warm standby.** On total instance/AZ loss,
+  the system goes down; recovery is a manual restart. State recovery relies on PostgreSQL (durable
+  trade/audit log) and the SQLite failover buffer for anything not yet flushed. No automated
+  failover or standby compute is built in this phase.
+- **Alternatives considered:** Warm standby in a second AZ (replicated Redis/Postgres, standby
+  compute, automated failover) — rejected for now as disproportionate cost/complexity while the
+  system is in build/paper-trading phase with no live capital at risk. Deferring the decision to
+  M23 — rejected in favor of deciding now so M01's infra scaffolding (docker-compose, AWS scripts)
+  is built consistent with the chosen posture from the start, rather than retrofitted later.
+- **Consequences:** No multi-AZ redundancy work is in scope for M01–M23 as currently planned. This
+  posture **must be re-reviewed before live deployment** (tracked on the spec's own pre-flight
+  checklist) — if the live-trading risk profile changes, this ADR should be superseded rather than
+  silently ignored.
 
-- **DR posture for total EC2/AZ instance loss** — not yet decided. Spec requires an explicit
-  decision (e.g., "accepted risk, manual restart, no warm standby" vs. "warm standby in second
-  AZ") to be recorded here before go-live, since in-process Redis/SQLite buffering does not
-  survive the host dying. Status: **open**, to be resolved in Step 1 (spec confirmation) of this
-  build.
-- **`TRADING_MODE=PAPER` default confirmation** — spec mandates this as the default for the
-  entire build; explicit user confirmation pending as part of Step 1.
+---
+
+### ADR-003: TRADING_MODE default confirmation
+- **Date:** 2026-06-30
+- **Module:** N/A (applies system-wide)
+- **Context:** RULE 1 mandates paper trading as the always-default mode; spec Step 10 ("Ask,
+  never assume") called for explicit confirmation since this gates every module's safety posture.
+- **Decision:** Confirmed. `TRADING_MODE=PAPER` is the default in every config file, `.env.example`,
+  docker-compose service definition, and test fixture, in every module, for the entire build.
+  `TRADING_MODE=LIVE` is never a default anywhere and is only ever set by explicit user instruction
+  at actual deploy time, gated by both `TRADING_MODE=LIVE` and `LIVE_TRADING_CONFIRMED=true`.
+- **Alternatives considered:** Adding a further manual gate beyond the two env vars (e.g., a
+  separate CLI confirmation flag or manual code-review checklist item before any LIVE order) —
+  user selected the standard two-env-var gate as sufficient for now; an additional gate can be
+  layered in later (e.g., at M14/M23) without contradicting this decision.
+- **Consequences:** Every module's `.env.example` and config defaults must be checked against this
+  before being marked "complete" in PROGRESS.md.
