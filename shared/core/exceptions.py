@@ -30,6 +30,11 @@ class CalendarUnavailableError(TradingSystemError):
     """
 
 
+class DataValidationError(TradingSystemError):
+    """Raised by M03's tick/candle validation on corrupt, zero-price, or
+    out-of-sequence data -- rejected before it reaches storage."""
+
+
 class NoStopLossError(TradingSystemError):
     """Raised before any broker call if an order lacks stop-loss metadata (RULE 7)."""
 

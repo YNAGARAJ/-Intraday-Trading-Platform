@@ -190,3 +190,65 @@ to the user per RULE 10).
   build). This is a known, visible limitation, not a silent gap -- tracked in PROGRESS.md. NSE's
   endpoint is confirmed working as of this build but, per the spec's own guidance on regulatory/
   external-data citations, should be periodically re-verified, not assumed permanently stable.
+
+---
+
+### ADR-007: ohlcv_1m stores finest-available granularity, not strictly 1-minute bars
+- **Date:** 2026-06-30
+- **Module:** M03
+- **Context:** The spec's own M03 VERIFY command asks for a 30-day backfill of RELIANCE.NS
+  queried back as 5-minute candles. Yahoo Finance (the backfill source) only serves 1-minute
+  intraday data for the trailing ~7 days; ranges beyond that require requesting a coarser
+  interval (5m, available up to ~60 days). Meanwhile TimescaleDB continuous aggregates
+  (`ohlcv_5m`/`ohlcv_15m`/`ohlcv_1h`) are read-only materialized views computed from `ohlcv_1m` --
+  there is no way to INSERT directly into them, so a coarse-granularity backfill can't write
+  "5-minute data" into a separate writable 5m table even if one existed.
+- **Decision:** `ohlcv_1m` is treated as "the finest-grained OHLCV data actually available for
+  this bucket," not literally "exactly one row per calendar minute, always." Live ingestion (M16)
+  will write genuine 1-minute rows; the yfinance backfill utility, when only 5-minute granularity
+  is available (any backfill > `ONE_MINUTE_MAX_BACKFILL_DAYS` = 7 days), writes one row per
+  5-minute bucket instead. The continuous aggregates still produce correct results in both cases,
+  because `time_bucket()` + `first/max/min/last/sum` aggregate whatever rows exist in a bucket --
+  a bucket with a single coarse row reproduces that row's own OHLC values exactly (verified by
+  `test_5m_aggregate_reflects_single_row_bucket_exactly`), and a bucket with several genuine
+  1-minute rows aggregates them normally (verified by
+  `test_5m_continuous_aggregate_rolls_up_1m_rows_correctly`).
+- **Alternatives considered:** Adding separate directly-writable `ohlcv_5m_raw` style tables for
+  backfilled data, distinct from the continuous-aggregate-derived `ohlcv_5m` -- rejected as it
+  would mean two different code paths (and two different table sets) compute "5-minute candles"
+  depending on data source, contradicting the spec's explicit "Continuous aggregates: 1m -> 5m ->
+  15m -> 1h" design and adding real complexity for a problem the bucket semantics already solve.
+- **Consequences:** Code reading `ohlcv_1m` directly (rather than through the timeframe-aware
+  `OHLCVRepository.query_candles`) must not assume every calendar minute has a row, or that rows
+  are exactly 60 seconds apart -- only `query_candles(..., "1m", ...)` on freshly-ingested live
+  data has that guarantee; backfilled historical ranges do not.
+
+---
+
+### ADR-008: Continuous aggregates use materialized_only=false (real-time aggregation)
+- **Date:** 2026-06-30
+- **Module:** M03
+- **Context:** Verified directly against a live TimescaleDB 2.14.0 container: continuous
+  aggregates created with plain `WITH (timescaledb.continuous)` defaulted to
+  `materialized_only = true` in this version, meaning queries against `ohlcv_5m` etc. returned
+  zero rows for data inserted into `ohlcv_1m` since the last scheduled refresh -- confirmed by
+  inserting 5 rows into `ohlcv_1m` and immediately querying `ohlcv_5m`, which returned 0 rows
+  until the setting was corrected. For a system whose signal generation (M11) and indicators
+  (M04) need current candles, not candles as-of-the-last-refresh-policy-run, this default is
+  wrong.
+- **Decision:** All three continuous aggregates (`ohlcv_5m`, `ohlcv_15m`, `ohlcv_1h`) are created
+  with `WITH (timescaledb.continuous, timescaledb.materialized_only = false)`, enabling real-time
+  aggregation: queries merge materialized chunks with a live computation over any not-yet-
+  materialized raw data, so a row inserted into `ohlcv_1m` is immediately visible through the
+  rolled-up views without waiting for `add_continuous_aggregate_policy`'s `schedule_interval` to
+  fire. Re-verified after the fix: the same insert-then-query-immediately test now returns the
+  correct aggregated row (confirmed live).
+- **Alternatives considered:** Leaving `materialized_only = true` and having callers explicitly
+  `CALL refresh_continuous_aggregate(...)` before querying -- rejected as it pushes a
+  TimescaleDB-specific operational detail onto every caller (M04, M11, M21, ...) and reintroduces
+  exactly the kind of "candle data lags reality" bug this system can't tolerate on the signal
+  path.
+- **Consequences:** Real-time aggregation has a small per-query cost for the unmaterialized tail
+  (merging raw rows at query time) -- acceptable here since OHLCV queries are not on the < 100ms
+  pure-Python signal hot path (RULE 4); they're called by indicator/signal code before that hot
+  path runs, not inside it.

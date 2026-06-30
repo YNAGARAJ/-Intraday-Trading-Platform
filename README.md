@@ -10,7 +10,7 @@ build status.
 `TRADING_MODE=PAPER` is the default everywhere. `TRADING_MODE=LIVE` is never a default
 and must be set explicitly alongside `LIVE_TRADING_CONFIRMED=true`.
 
-## Current state: M02 -- Market Calendar & Session Manager
+## Current state: M03 -- High-Throughput Buffering & Storage
 
 What exists so far:
 
@@ -24,6 +24,11 @@ What exists so far:
   PRE_MARKET -> OPEN -> SNAPSHOT_WINDOW -> APPROACHING_CLOSE -> CLOSED) and SEBI
   snapshot-window flag, the ASX staggered-open ticker-group registry, the T-20min
   auto square-off scheduler, and the `@market_hours_only` decorator.
+- **M03:** TimescaleDB hypertables (`ticks`, `ohlcv_1m`) with 5m/15m/1h continuous
+  aggregates (real-time aggregation -- see ADR-008), the repository pattern
+  (`shared/storage/repositories.py` -- all DB access goes through it), tick validation
+  (out-of-sequence/corrupt/zero-price rejection), a SQLite failover buffer for RULE 5
+  DB-outage handling, and a yfinance dev-only historical backfill CLI.
 
 No trading/signal logic exists yet -- that starts at M11.
 
@@ -46,9 +51,11 @@ pip install --upgrade pip
 pip install \
   "pydantic==2.6.4" "pydantic-settings==2.2.1" "pyyaml==6.0.1" "structlog==24.1.0" \
   "redis==5.0.3" "protobuf==4.25.3" "psycopg2-binary==2.9.9" "requests==2.31.0" \
+  "pandas==2.2.1" "numpy==1.26.4" "yfinance==0.2.37" \
   "pytest==8.1.1" "pytest-asyncio==0.23.5" "pytest-cov==4.1.0" \
   "ruff==0.3.2" "mypy==1.9.0" \
-  "grpcio-tools==1.62.1" "types-protobuf==4.25.0.20240417" "types-PyYAML" "types-requests"
+  "grpcio-tools==1.62.1" "types-protobuf==4.25.0.20240417" "types-PyYAML" \
+  "types-requests" "types-psycopg2" "pandas-stubs"
 
 cp .env.example .env   # fill in values as needed; .env is gitignored
 ```
@@ -79,6 +86,25 @@ This is a cross-app diagnostic tool meant to run from the repo root with both ap
 inside a single-app Docker container (`apps/india/main.py` / `apps/australia/main.py`
 are the actual per-app service entrypoints).
 
+## Running the storage backfill CLI
+
+```bash
+source .venv/bin/activate
+docker run --rm -d --name trading-test-timescale -p 5433:5432 \
+    -e POSTGRES_USER=trading -e POSTGRES_PASSWORD=trading \
+    -e POSTGRES_DB=trading_ts timescale/timescaledb:2.14.0-pg16
+python -m shared.storage.backfill --symbol RELIANCE.NS --days 30
+```
+
+Applies `shared/storage/schema.sql` (idempotent) then fetches and writes history via
+yfinance. CAVEAT: Yahoo Finance's API was rate-limited (HTTP 429) for every ticker
+tried from this build's sandboxed network -- the CLI fails gracefully (`rows=0`, no
+crash) when this happens; re-verify reachability in your actual environment. See
+ADR-007 for why the 30-day case requests 5-minute (not 1-minute) granularity, and
+`tests/integration/timescale/test_repositories.py`'s
+`test_backfill_30_days_then_query_5m_count_correct` for a synthetic-data proof of the
+storage layer's own round-trip correctness, independent of yfinance's availability.
+
 ## Verifying the build (exact commands)
 
 ```bash
@@ -95,16 +121,21 @@ mypy .
 # 4. Unit tests (no Docker required)
 pytest
 
-# 5. Lua script atomicity + holiday-source live-network tests (some skip without
-#    Redis / network access -- see output for which)
+# 5. Integration tests (skip individually if their service/network isn't available)
 docker run --rm -d --name trading-test-redis -p 6379:6379 redis:7.2.4-alpine
+docker run --rm -d --name trading-test-timescale -p 5433:5432 \
+    -e POSTGRES_USER=trading -e POSTGRES_PASSWORD=trading \
+    -e POSTGRES_DB=trading_ts timescale/timescaledb:2.14.0-pg16
 pytest tests/integration/ -v
-docker stop trading-test-redis
+docker stop trading-test-redis trading-test-timescale
 
 # 6. Session state machine CLI (M02 VERIFY command)
 python -m shared.session_manager
 
-# 7. Full stack
+# 7. Storage backfill CLI (M03 VERIFY command -- requires TimescaleDB from step 5)
+python -m shared.storage.backfill --symbol RELIANCE.NS --days 30
+
+# 8. Full stack
 docker build -f infra/docker/Dockerfile.base -t trading-system-base:dev .
 docker compose -f infra/docker-compose.yml up -d --build
 docker compose -f infra/docker-compose.yml ps     # all should be Up/healthy
@@ -113,9 +144,9 @@ curl http://localhost:3000/api/health              # Grafana
 docker compose -f infra/docker-compose.yml down
 ```
 
-Expected: 144 tests passing (143 without Redis/network, with 1-2 skipping depending on
-what's reachable), 98% coverage on `shared/` + `apps/`, ruff and mypy both clean, all 7
-compose services reach Up/healthy.
+Expected: 191 tests passing (189 without Redis/TimescaleDB/network, with up to 3
+skipping depending on what's reachable), 99% coverage on `shared/` + `apps/` (100% on
+`shared/storage/`), ruff and mypy both clean, all 7 compose services reach Up/healthy.
 
 ## Environment variables
 
@@ -123,9 +154,7 @@ See [`.env.example`](.env.example) at the repo root for the full list, grouped b
 module that owns each variable. Only the M01 section
 (`APP_ID`/`ENVIRONMENT`/`LOG_LEVEL`/`TRADING_MODE`/`LIVE_TRADING_CONFIRMED`/`REDIS_URL`/
 `POSTGRES_DSN`/`TIMESCALE_DSN`) is actually read by code today; the rest documents
-future modules' variables for discoverability. M02 introduced no new env vars -- its
-config (`pre_market_local`, `snapshot_window_start_local`, etc.) lives in each app's
-`config.yaml`, not `.env`, since it's static and non-secret.
+future modules' variables for discoverability. M02 and M03 introduced no new env vars.
 
 ## Known follow-ups (tracked in PROGRESS.md / ARCHITECTURE_DECISIONS.md)
 
@@ -138,3 +167,7 @@ config (`pre_market_local`, `snapshot_window_start_local`, etc.) lives in each a
   404s) -- `SessionStateMachine` for Australia will raise `CalendarUnavailableError`
   on every weekday until this is fixed. This is a known, visible, fail-closed
   limitation (see ADR-006), not a silent gap. NSE's live fetch is confirmed working.
+- Yahoo Finance's API is rate-limited (HTTP 429) from this build's sandboxed network
+  for every ticker tried, not just NSE symbols -- the backfill CLI degrades gracefully
+  (`rows=0`) rather than crashing; re-verify reachability in your actual deployment
+  environment before relying on it.
