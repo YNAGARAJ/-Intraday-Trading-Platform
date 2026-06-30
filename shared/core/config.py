@@ -92,12 +92,17 @@ class RegionConfig(BaseModel):
     exchange: Exchange
     broker_name: str
     timezone: str
+    """IANA timezone name, e.g. "Asia/Kolkata" or "Australia/Sydney"."""
+    pre_market_local: str
+    """Infra scale-on / knowledge-engine start time, "HH:MM" 24h format."""
     market_open_local: str
     """Local market open time, "HH:MM" 24h format."""
     market_close_local: str
     """Local market close time, "HH:MM" 24h format."""
     square_off_local: str
     """Hard square-off time, "HH:MM" 24h format."""
+    snapshot_window_start_local: str | None = None
+    """SEBI snapshot window start, "HH:MM" 24h format. India only -- None elsewhere."""
 
 
 def load_region_config(path: Path) -> RegionConfig:

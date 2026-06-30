@@ -26,8 +26,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Exact pins mirrored from pyproject.toml's [tool.poetry.dependencies] -- the subset M01's code
-# under shared/core, shared/proto, and apps/*/main.py actually imports.
+# Exact pins mirrored from pyproject.toml's [tool.poetry.dependencies] -- the subset actually
+# imported by shared/core, shared/proto, shared/session_manager.py (M02), and apps/*/main.py.
 RUN pip install --no-cache-dir \
     "pydantic==2.6.4" \
     "pydantic-settings==2.2.1" \
@@ -35,7 +35,8 @@ RUN pip install --no-cache-dir \
     "structlog==24.1.0" \
     "redis==5.0.3" \
     "protobuf==4.25.3" \
-    "psycopg2-binary==2.9.9"
+    "psycopg2-binary==2.9.9" \
+    "requests==2.31.0"
 
 # --- Runtime image ---
 FROM python:3.12-slim AS runtime

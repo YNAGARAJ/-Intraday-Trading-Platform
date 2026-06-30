@@ -114,6 +114,17 @@ TICK_DATA_RETENTION_YEARS: Final[int] = 2
 OHLCV_DATA_RETENTION_YEARS: Final[int] = 5
 AUSTRALIA_TRADE_LOG_RETENTION_YEARS: Final[int] = 7
 
+# --- Market Calendar & Session Manager (M02) ---
+SQUARE_OFF_WARNING_LEAD_MINUTES: Final[int] = 20
+"""Auto square-off scheduler fires its warning this many minutes before the hard
+square-off deadline (square_off_local)."""
+
+HOLIDAY_CACHE_MAX_AGE_DAYS: Final[int] = 7
+"""Holiday calendars are auto-refreshed weekly; a cache older than this is stale."""
+
+ASX_GROUP_OPEN_TOLERANCE_SECONDS: Final[int] = 15
+"""+/- tolerance band on each ASX staggered-open group's published open time."""
+
 # --- Reconciliation (M17) ---
 RECONCILIATION_INTERVAL_SECONDS: Final[int] = 90
 """Mid-point of the spec's 60-120s reconciliation cycle band; tunable per deployment."""

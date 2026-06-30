@@ -4,6 +4,9 @@ app_id: australia
 exchange: ASX
 broker_name: interactive_brokers
 timezone: Australia/Sydney
+pre_market_local: "09:15"
 market_open_local: "10:00"
 market_close_local: "16:00"
 square_off_local: "15:50"
+# No snapshot_window_start_local: the SEBI snapshot window is an India-specific
+# concept; Australia has no equivalent in the spec.

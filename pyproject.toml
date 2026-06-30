@@ -46,7 +46,8 @@ gptcache = "0.1.43"                 # Semantic dedup cache for sentiment scoring
 
 # --- Broker / auth (M14-M16; not used until those modules) ---
 pyotp = "2.9.0"                     # Kite TOTP auto-login (M15)
-requests = "2.31.0"                 # Kite REST session flow, RSS scraping
+requests = "2.31.0"                 # NSE/ASX holiday calendar fetch (M02); Kite REST
+                                     # session flow, RSS scraping (later modules)
 
 # --- Market data / indicators (M03-M06) ---
 yfinance = "0.2.37"                 # Dev historical backfill only; NEVER used for live entry signals
@@ -74,6 +75,8 @@ mypy = "1.9.0"
 locust = "2.24.1"                   # Load testing (M23)
 grpcio-tools = "1.62.1"             # protoc compiler for compiling messages.proto -> messages_pb2.py
 types-protobuf = "4.25.0.20240417"  # mypy stubs for the compiled protobuf module
+types-requests = "2.31.0.20240406"  # mypy stubs for requests (M02 calendar fetch)
+types-PyYAML = "6.0.12.20240311"    # mypy stubs for pyyaml (config.yaml loading)
 
 [tool.ruff]
 line-length = 88

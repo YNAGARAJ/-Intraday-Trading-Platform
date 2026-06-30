@@ -31,6 +31,7 @@ htmlcov/
 
 # Local data / buffers
 shared/data/buffer.db
+shared/data/holiday_cache/
 *.sqlite3
 
 # IDE

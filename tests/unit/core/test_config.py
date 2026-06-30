@@ -56,8 +56,10 @@ class TestRegionConfig:
         assert config.app_id is AppId.INDIA
         assert config.exchange is Exchange.NSE
         assert config.broker_name == "zerodha_kite"
+        assert config.pre_market_local == "08:45"
         assert config.market_open_local == "09:15"
         assert config.square_off_local == "15:10"
+        assert config.snapshot_window_start_local == "14:45"
 
     def test_load_missing_file_raises(self, tmp_path: Path) -> None:
         with pytest.raises(ConfigValidationError):
@@ -87,6 +89,7 @@ class TestRegionConfig:
 
         assert config.app_id is AppId.AUSTRALIA
         assert config.exchange is Exchange.ASX
+        assert config.snapshot_window_start_local is None
 
     def test_region_config_is_frozen_data(self, valid_region_yaml: Path) -> None:
         config = load_region_config(valid_region_yaml)

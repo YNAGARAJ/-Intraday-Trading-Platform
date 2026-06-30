@@ -21,9 +21,11 @@ def valid_region_yaml(tmp_path: Path) -> Path:
         "exchange: NSE\n"
         "broker_name: zerodha_kite\n"
         "timezone: Asia/Kolkata\n"
+        'pre_market_local: "08:45"\n'
         'market_open_local: "09:15"\n'
         'market_close_local: "15:30"\n'
         'square_off_local: "15:10"\n'
+        'snapshot_window_start_local: "14:45"\n'
     )
     return path
 
@@ -38,6 +40,7 @@ def region_yaml_factory(tmp_path: Path):  # type: ignore[no-untyped-def]
             "exchange": Exchange.ASX.value,
             "broker_name": "interactive_brokers",
             "timezone": "Australia/Sydney",
+            "pre_market_local": "09:15",
             "market_open_local": "10:00",
             "market_close_local": "16:00",
             "square_off_local": "15:50",

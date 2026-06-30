@@ -123,3 +123,70 @@ to the user per RULE 10).
   tracked as a known M04 follow-up, not silently deferred. Any module that needs a package outside
   M01's installed subset must extend `Dockerfile.base` (or add its own install step) when it's
   built, and re-verify that package's pin against PyPI at that time per the spec's own guidance.
+
+---
+
+### ADR-005: Session state machine boundaries (SNAPSHOT_WINDOW / APPROACHING_CLOSE)
+- **Date:** 2026-06-30
+- **Module:** M02
+- **Context:** The spec defines the session state enum (CLOSED -> PRE_MARKET -> OPEN ->
+  SNAPSHOT_WINDOW -> APPROACHING_CLOSE -> CLOSED) and gives the SEBI snapshot window as a single
+  14:45-15:30 IST band, but doesn't explicitly say where SNAPSHOT_WINDOW ends and
+  APPROACHING_CLOSE begins within that band, or what Australia (which has no snapshot-window
+  concept at all) does in its place. Note this is a state-machine *boundary* decision, not the
+  RULE-2-relevant question of whether entries are blocked vs. merely reduced-size during the
+  window -- that's M12's job (position sizing) and M11's job (Gate 7's 30-minute closing-window
+  check), neither built yet, so it wasn't treated as a RULE-10 compliance/risk question requiring
+  the user's input.
+- **Decision:** For India: SNAPSHOT_WINDOW = [snapshot_window_start_local, square_off_local) =
+  [14:45, 15:10); APPROACHING_CLOSE = [square_off_local, market_close_local) = [15:10, 15:30).
+  This reuses `square_off_local` (already a RegionConfig field) as the natural boundary, rather
+  than inventing a new config field. For Australia (`snapshot_window_start_local` is `None`):
+  SNAPSHOT_WINDOW is skipped entirely; OPEN runs straight to APPROACHING_CLOSE at
+  `square_off_local` (15:50 AEST). `RegionConfig` gained two new fields to support this:
+  `pre_market_local` (infra scale-on time, was previously only implicit) and
+  `snapshot_window_start_local: str | None` (India-only).
+- **Alternatives considered:** Treating the post-close ASX residual-clearance window
+  (16:11-16:21:30 AEST) as a 6th session state -- rejected; the spec's own `TradingSystemState`
+  schema defines exactly 5 states, and the post-close clearance is a distinct procedural concept
+  (M17 reconciliation territory) better exposed as its own flag when that module is built, not
+  forced into this enum.
+- **Consequences:** M12 (risk sizing) and M11 (Gate 7) must read `SessionStateMachine` /
+  `SquareOffScheduler` for their own timing needs rather than re-deriving market-hours math
+  independently. If a future module needs the post-close clearance window as a flag, add it
+  there rather than overloading `SessionState`.
+
+---
+
+### ADR-006: Holiday calendar fails closed; live-fetch endpoints are best-effort
+- **Date:** 2026-06-30
+- **Module:** M02
+- **Context:** The spec calls for "auto-fetched weekly" NSE/ASX holiday calendars. Verified during
+  this build: NSE's site/API rejects bare requests (confirmed blocked via raw `curl`, but a
+  proper browser-like `requests.Session` with cookie bootstrap **does** work -- it successfully
+  fetched real 2026 NSE holiday data during this build). ASX has no confirmed stable public JSON
+  API for trading holidays (the implemented endpoint currently 404s; the only verified-working
+  ASX resource is an HTML calendar page, not a clean API). Holiday correctness is genuinely
+  risk-relevant (trading on an actual holiday, or refusing to trade on an actual trading day), so
+  guessing wrong is worse than failing visibly.
+- **Decision:** `HolidayCalendar` fails closed (RULE 2 spirit): weekend closure is always
+  resolvable with zero calendar data (no fetch needed). Weekday holiday status requires data from
+  cache or a live fetch; if a weekday's status truly can't be determined (no cache, fetch fails),
+  `is_trading_day`/`get_state` raise `CalendarUnavailableError` rather than silently assuming the
+  market is open. No hand-curated static holiday list was added as a fallback -- fabricating
+  specific holiday dates from training data without a verified source would itself be a
+  compliance-relevant correctness risk, worse than a visible, logged failure. `NSEHolidaySource`
+  and `ASXHolidaySource` are real, working implementations (not stubs), with local JSON caching
+  (`shared/data/holiday_cache/`, gitignored) refreshed weekly (`HOLIDAY_CACHE_MAX_AGE_DAYS=7`); a
+  stale cache is preferred over a hard failure if a live refetch fails but prior data exists.
+- **Alternatives considered:** Shipping a static fallback list of guessed 2026 holidays --
+  rejected per the reasoning above. Treating ASX's 404 as something to keep guessing endpoints
+  for indefinitely -- rejected as disproportionate for M02; the fail-closed path already produces
+  correct, safe, visible behavior (demonstrated live via `python -m shared.session_manager`), and
+  the real endpoint can be corrected later without changing any calling code (only
+  `ASXHolidaySource.HOLIDAY_API_URL`/parsing).
+- **Consequences:** Until ASX's real holiday endpoint is found/confirmed, `SessionStateMachine`
+  for Australia will raise `CalendarUnavailableError` on every weekday (verified live during this
+  build). This is a known, visible limitation, not a silent gap -- tracked in PROGRESS.md. NSE's
+  endpoint is confirmed working as of this build but, per the spec's own guidance on regulatory/
+  external-data citations, should be periodically re-verified, not assumed permanently stable.

@@ -19,6 +19,17 @@ class MarketClosedError(TradingSystemError):
     """Raised by the `@market_hours_only` decorator (M02) outside the session window."""
 
 
+class CalendarFetchError(TradingSystemError):
+    """Raised by a `HolidaySource` (M02) when a live exchange-calendar fetch fails."""
+
+
+class CalendarUnavailableError(TradingSystemError):
+    """Raised by `HolidayCalendar.is_trading_day` (M02) when no holiday data -- live
+    or cached -- is available for a weekday. Fails closed by design (RULE 2): an
+    unverifiable calendar must never be silently treated as "market open".
+    """
+
+
 class NoStopLossError(TradingSystemError):
     """Raised before any broker call if an order lacks stop-loss metadata (RULE 7)."""
 

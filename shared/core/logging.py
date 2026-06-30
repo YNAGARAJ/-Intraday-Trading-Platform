@@ -47,7 +47,17 @@ def configure_logging(log_level: str = "INFO") -> None:
         wrapper_class=structlog.make_filtering_bound_logger(level),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(file=sys.stdout),
-        cache_logger_on_first_use=True,
+        # cache_logger_on_first_use=False (the default): module-level `logger =
+        # get_logger(__name__)` singletons are common in this codebase, and if their
+        # underlying logger were cached on first use, a later configure_logging()
+        # call (e.g. a test reconfiguring the level, or any legitimate runtime
+        # reconfiguration) would silently not apply to already-cached loggers --
+        # observed as a hard crash ("I/O operation on closed file") when pytest's
+        # capsys swaps sys.stdout between tests and a stale cached logger from an
+        # earlier test tries to write to it. Re-resolving on every call costs
+        # microseconds and isn't on the RULE 4 hot path (LLM calls), so the
+        # robustness is worth it.
+        cache_logger_on_first_use=False,
     )
 
 

@@ -1,4 +1,10 @@
-"""Redis-backed fixtures, scoped to tests/integration/ only.
+"""Redis-backed fixtures, scoped to tests/integration/redis/ only.
+
+Deliberately NOT in tests/integration/conftest.py: an autouse fixture there would
+apply to every test under tests/integration/ (including non-Redis live-network tests
+like test_holiday_sources_live.py), wrongly skipping them as "no Redis" instead of
+exercising what they actually test. Scoping to this subdirectory keeps the autouse
+cleanup fixture from leaking into unrelated integration tests.
 
 These tests require a real Redis server (Lua script atomicity cannot be meaningfully
 faked). The fixture skips the test module if nothing is reachable, so `pytest` stays
@@ -15,7 +21,7 @@ import redis as redis_lib
 REDIS_TEST_URL = "redis://localhost:6379/15"
 """Db 15 is reserved for integration tests so it never collides with dev data."""
 
-LUA_DIR = Path(__file__).resolve().parents[2] / "shared" / "lua"
+LUA_DIR = Path(__file__).resolve().parents[3] / "shared" / "lua"
 
 
 @pytest.fixture(scope="session")
