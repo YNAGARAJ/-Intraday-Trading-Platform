@@ -1,0 +1,9 @@
+# App 2 -- Australia (ASX) regional configuration.
+# Static, non-secret parameters only. Credentials and connection strings belong in .env, never here.
+app_id: australia
+exchange: ASX
+broker_name: interactive_brokers
+timezone: Australia/Sydney
+market_open_local: "10:00"
+market_close_local: "16:00"
+square_off_local: "15:50"

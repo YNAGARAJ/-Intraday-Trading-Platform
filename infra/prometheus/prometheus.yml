@@ -1,0 +1,9 @@
+# Minimal scrape config for the M01 stack. App-level /metrics exporters are added by M19
+# (Real-Time Monitor Agent); only Prometheus self-monitoring is configured for now.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

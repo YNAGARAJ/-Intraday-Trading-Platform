@@ -1,0 +1,98 @@
+syntax = "proto3";
+package trading;
+
+// All transactional and agent communications use zero-overhead Protobuf binary serialization
+// over Redis Streams. This schema is the wire contract between every agent in the system --
+// do not edit messages_pb2.py by hand; regenerate it from this file instead:
+//
+//   python -m grpc_tools.protoc -I shared/proto --python_out=shared/proto shared/proto/messages.proto
+
+message SignalGenerated {
+  string signal_id = 1;
+  string symbol = 2;
+  string exchange = 3;
+  string direction = 4;
+  float confidence = 5;
+  float entry_price = 6;
+  float stop_loss = 7;
+  float target1 = 8;
+  float target2 = 9;
+  float atr = 10;
+  repeated string confirming_indicators = 11;
+  repeated string confirming_timeframes = 12;
+  string candlestick_pattern = 13;
+  string strategy_id = 14;       // Holds the compressed max 8-char identifier
+  int64 generated_at_ms = 15;
+  int64 expires_at_ms = 16;
+  string regime = 17;
+}
+
+message OrderIntent {
+  string signal_id = 1;
+  string symbol = 2;
+  string exchange = 3;
+  string side = 4;
+  string order_type = 5;          // "LIMIT" | "MPP" | "SL"
+  int32 quantity = 6;
+  float limit_price = 7;
+  float stop_loss = 8;
+  float target1 = 9;
+  float target2 = 10;
+  float position_size_pct = 11;
+  float risk_amount = 12;
+  string strategy_id = 13;        // Enforces compressed broker tag compliance
+  string client_order_id = 14;    // Idempotency key -- required, checked before any retry
+  int64 requested_at_ms = 15;
+  bool is_priority = 16;          // Settable ONLY by kill-switch / SL-exit code paths
+}
+
+message OrderFilled {
+  string signal_id = 1;
+  string order_id = 2;
+  string client_order_id = 3;     // Echoes OrderIntent.client_order_id for reconciliation
+  string symbol = 4;
+  string exchange = 5;
+  string status = 6;
+  int32 filled_quantity = 7;
+  float filled_price = 8;
+  float slippage_pct = 9;
+  string rejection_reason = 10;
+  string broker = 11;
+  int64 placed_at_ms = 12;
+  int64 filled_at_ms = 13;
+}
+
+message RegimeChanged {
+  string regime = 1;
+  float confidence = 2;
+  float adx = 3;
+  float rsi = 4;
+  float vwap_deviation = 5;
+  float volume_delta = 6;
+  float vix = 7;
+  int64 classified_at_ms = 8;
+}
+
+message AgentHeartbeat {
+  string agent_name = 1;
+  string status = 2;
+  int64 timestamp_ms = 3;
+  string last_action = 4;
+}
+
+message KillSwitchActivated {
+  string trigger = 1;
+  string triggered_by = 2;
+  float daily_pnl_pct = 3;
+  int64 timestamp_ms = 4;
+}
+
+message ReconciliationMismatch {
+  // Emitted by the Reconciliation Agent (M17) when internal state diverges from the broker's
+  // source-of-truth positions/orders.
+  string symbol = 1;
+  string field = 2;               // "quantity" | "avg_price" | "order_status" | ...
+  string internal_value = 3;
+  string broker_value = 4;
+  int64 detected_at_ms = 5;
+}

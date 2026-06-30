@@ -1,0 +1,36 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "ruff: check",
+      "type": "shell",
+      "command": "ruff check .",
+      "problemMatcher": []
+    },
+    {
+      "label": "mypy: strict",
+      "type": "shell",
+      "command": "mypy .",
+      "problemMatcher": []
+    },
+    {
+      "label": "pytest",
+      "type": "shell",
+      "command": "pytest",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "docker-compose: up",
+      "type": "shell",
+      "command": "docker compose -f infra/docker-compose.yml up",
+      "problemMatcher": []
+    },
+    {
+      "label": "docker-compose: down",
+      "type": "shell",
+      "command": "docker compose -f infra/docker-compose.yml down",
+      "problemMatcher": []
+    }
+  ]
+}

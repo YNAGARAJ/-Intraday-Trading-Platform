@@ -1,0 +1,125 @@
+# Full local/staging orchestration stack: app (India + Australia) + TimescaleDB + Postgres
+# (pgvector) + Redis + Prometheus + Grafana.
+#
+# The app images depend on trading-system-base:dev, which must be built first (this is not a
+# compose-buildable target since it has no CMD of its own):
+#
+#   docker build -f infra/docker/Dockerfile.base -t trading-system-base:dev ..
+#   docker compose -f infra/docker-compose.yml build
+#   docker compose -f infra/docker-compose.yml up
+#
+# All services default to TRADING_MODE=PAPER (RULE 1 / ADR-003) -- LIVE is never a compose default.
+
+services:
+  redis:
+    image: redis:7.2.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  timescaledb:
+    image: timescale/timescaledb:2.14.0-pg16
+    environment:
+      POSTGRES_USER: trading
+      POSTGRES_PASSWORD: trading
+      POSTGRES_DB: trading_ts
+    ports:
+      - "5433:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading -d trading_ts"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: trading
+      POSTGRES_PASSWORD: trading
+      POSTGRES_DB: trading
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading -d trading"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:10.4.1
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+  app-india:
+    build:
+      context: ..
+      dockerfile: apps/india/Dockerfile
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      TRADING_MODE: PAPER
+      LIVE_TRADING_CONFIRMED: "false"
+      REDIS_URL: redis://redis:6379/0
+      POSTGRES_DSN: postgresql://trading:trading@postgres:5432/trading
+      TIMESCALE_DSN: postgresql://trading:trading@timescaledb:5432/trading_ts
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  app-australia:
+    build:
+      context: ..
+      dockerfile: apps/australia/Dockerfile
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      TRADING_MODE: PAPER
+      LIVE_TRADING_CONFIRMED: "false"
+      REDIS_URL: redis://redis:6379/1
+      POSTGRES_DSN: postgresql://trading:trading@postgres:5432/trading
+      TIMESCALE_DSN: postgresql://trading:trading@timescaledb:5432/trading_ts
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  timescale_data:
+  postgres_data:
+  prometheus_data:
+  grafana_data:

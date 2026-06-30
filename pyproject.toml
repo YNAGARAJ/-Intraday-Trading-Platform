@@ -1,0 +1,105 @@
+[tool.poetry]
+name = "institutional-trading-system"
+version = "2.0.0"
+description = "Institutional Agentic AI Intraday Trading System for NSE & ASX"
+authors = ["Principal Quantitative Architect"]
+readme = "README.md"
+package-mode = false
+
+# Dependency pins below are carried over from MASTER_BUILD_PROMPT_FINAL.MD. Each pin is
+# annotated with why the package is needed and, where relevant, which module first uses it.
+# Per the spec's own note, pins should be re-verified against current PyPI releases before
+# being treated as final for a given module's build (library currency was out of scope for
+# the spec's regulatory/structural review).
+[tool.poetry.dependencies]
+python = "^3.11"
+
+# --- API layer (M22) ---
+fastapi = "0.110.0"               # REST + SSE streaming for the live dashboard
+uvicorn = "0.28.0"                # ASGI server for fastapi
+
+# --- Config & logging (M01, used by every module) ---
+pydantic = "2.6.4"                 # data validation backbone; pinned to match pydantic-settings 2.2.1
+pydantic-settings = "2.2.1"        # .env + config.yaml driven Settings, fail-fast validation
+pyyaml = "6.0.1"                   # config.yaml parsing; not pinned in the original spec table,
+                                    # added here since Pydantic Settings' own YAML support requires it
+structlog = "24.1.0"               # JSON structured logging everywhere; never print()
+
+# --- Databases & buffering (M01 client libs; M03 storage layer) ---
+redis = "5.0.3"                    # Redis client: price cache, Lua scripts, Streams bus
+protobuf = "4.25.3"                # wire format for all Redis Streams inter-agent messages
+psycopg2-binary = "2.9.9"          # PostgreSQL + TimescaleDB driver (trade log, audit, hypertables)
+
+# --- ML / forecasting (M07-M09; heavy, not used until those modules) ---
+scikit-learn = "1.4.1.post1"       # Market Regime Classifier (M08): Random Forest + HMM features
+xgboost = "2.0.3"                  # Next-candle OHLC classifier (M08/M09)
+tensorflow = "2.15.0"              # LSTM price direction model (M08/M09)
+prophet = "1.1.5"                  # Daily trend forecast (M09)
+mlflow = "2.11.1"                  # Model versioning/registry, weekly retraining (M07/M08)
+vectorbt = "0.26.0"                # Backtesting engine with fitted slippage model (M07)
+
+# --- AI agents / LLM routing (M10, M11, M18; not used until those modules) ---
+langgraph = "0.0.30"               # State graph engine, agent orchestration (M18)
+langchain = "0.1.12"                # Prompt management, foundational chains (M10/M11)
+litellm = "1.34.0"                  # Unified tiered LLM provider routing (Groq + Claude)
+gptcache = "0.1.43"                 # Semantic dedup cache for sentiment scoring (M10)
+
+# --- Broker / auth (M14-M16; not used until those modules) ---
+pyotp = "2.9.0"                     # Kite TOTP auto-login (M15)
+requests = "2.31.0"                 # Kite REST session flow, RSS scraping
+
+# --- Market data / indicators (M03-M06) ---
+yfinance = "0.2.37"                 # Dev historical backfill only; NEVER used for live entry signals
+pandas = "2.2.1"                    # Tabular OHLCV manipulation across the stack
+numpy = "1.26.4"                    # Vectorized tick aggregation (hot path)
+ta-lib = "0.4.28"                   # Core technical indicators (M04); requires system TA-Lib C lib
+pandas-ta = "0.4.71b0"              # Extended indicators, multi-timeframe computation (M04).
+                                     # DEVIATION from MASTER_BUILD_PROMPT_FINAL.MD's 0.3.14b0 pin:
+                                     # that version no longer exists on PyPI at all (confirmed via
+                                     # PyPI JSON API during M01 build) -- the upstream project
+                                     # appears to have renumbered its release line. Pinned to the
+                                     # latest available pre-release instead. Re-verify API
+                                     # compatibility when M04 actually imports this package.
+
+# --- Reporting / dashboard (M21-M22) ---
+fpdf2 = "2.7.8"                     # Daily PDF report generation (M21)
+streamlit = "1.32.2"                # Operational dashboard UI (M22)
+
+[tool.poetry.group.dev.dependencies]
+pytest = "8.1.1"
+pytest-asyncio = "0.23.5"
+pytest-cov = "4.1.0"
+ruff = "0.3.2"
+mypy = "1.9.0"
+locust = "2.24.1"                   # Load testing (M23)
+grpcio-tools = "1.62.1"             # protoc compiler for compiling messages.proto -> messages_pb2.py
+types-protobuf = "4.25.0.20240417"  # mypy stubs for the compiled protobuf module
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+exclude = ["shared/proto/messages_pb2.py", "shared/proto/messages_pb2.pyi"]  # generated code
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I", "N"]
+ignore = ["D100", "D104"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+exclude = ["shared/proto/messages_pb2.py", "shared/proto/messages_pb2.pyi"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]
+
+[tool.coverage.run]
+omit = ["shared/proto/messages_pb2.py"]  # generated code, not hand-maintained
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

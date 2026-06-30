@@ -1,0 +1,53 @@
+# syntax=docker/dockerfile:1
+#
+# Base image for the app containers.
+#
+# SCOPE NOTE (M01): this installs only the dependency subset that M01's own code actually
+# imports (config/logging/proto/redis-client plumbing), via direct pip install with exact pins
+# mirrored from pyproject.toml -- NOT a full `poetry install` of every dependency in
+# pyproject.toml. Three consecutive build failures during the M01 build (pandas-ta version
+# missing from PyPI, pandas-ta's release line requiring Python >=3.12, then a TA-Lib 0.4.0 C
+# source build failing to link its bundled `gen_code` tool against a modern GCC) made clear that
+# fully resolving and compiling the entire spec's ML/TA-Lib/broker stack is real, non-trivial
+# work belonging to the modules that actually need those libraries (M04 for TA-Lib, M07-M09 for
+# the ML stack, M14-M16 for broker SDKs), not to M01's scaffold. See ARCHITECTURE_DECISIONS.md
+# (ADR-004) for the full writeup. pyproject.toml remains the authoritative full pinned manifest;
+# `poetry install` of the complete graph -- and a committed poetry.lock -- is reinstated
+# incrementally as each owning module is built.
+#
+# Build once, locally or in CI, before building the app images:
+#   docker build -f infra/docker/Dockerfile.base -t trading-system-base:dev .
+
+FROM python:3.12-slim AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Exact pins mirrored from pyproject.toml's [tool.poetry.dependencies] -- the subset M01's code
+# under shared/core, shared/proto, and apps/*/main.py actually imports.
+RUN pip install --no-cache-dir \
+    "pydantic==2.6.4" \
+    "pydantic-settings==2.2.1" \
+    "pyyaml==6.0.1" \
+    "structlog==24.1.0" \
+    "redis==5.0.3" \
+    "protobuf==4.25.3" \
+    "psycopg2-binary==2.9.9"
+
+# --- Runtime image ---
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+COPY --from=builder /opt/venv /opt/venv
+
+RUN useradd --create-home --uid 1000 trading
+WORKDIR /app
+USER trading
+
+# App-specific Dockerfiles COPY their own code and set CMD; this base ships no entrypoint.

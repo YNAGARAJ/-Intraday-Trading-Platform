@@ -6,7 +6,7 @@
 
 | Module ID | Module Name | Status | Date completed | Test results summary | Known issues / follow-ups |
 |---|---|---|---|---|---|
-| M01 | Project Scaffold & Config | not started | | | |
+| M01 | Project Scaffold & Config | complete | 2026-06-30 | 64 tests passing (11 Redis-integration + 53 unit), 99% coverage on shared/+apps/, ruff clean, mypy --strict clean, docker-compose up: all 7 services Up/healthy | poetry.lock not yet generated -- Dockerfile.base installs a minimal pip subset, not full pyproject.toml (ADR-004); pandas-ta repinned 0.3.14b0->0.4.71b0 (original pin missing from PyPI); TA-Lib C source build fails against modern GCC, deferred to M04; env vars introduced: APP_ID, ENVIRONMENT, LOG_LEVEL, TRADING_MODE, LIVE_TRADING_CONFIRMED, REDIS_URL, POSTGRES_DSN, TIMESCALE_DSN |
 | M02 | Market Calendar & Session Manager | not started | | | |
 | M03 | High-Throughput Buffering & Storage | not started | | | |
 | M04 | Core Technical Indicator Engine | not started | | | |

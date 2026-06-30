@@ -1,0 +1,30 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "App: India (M01 scaffold)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "apps.india.main",
+      "console": "integratedTerminal",
+      "env": { "PYTHONPATH": "${workspaceFolder}" }
+    },
+    {
+      "name": "App: Australia (M01 scaffold)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "apps.australia.main",
+      "console": "integratedTerminal",
+      "env": { "PYTHONPATH": "${workspaceFolder}" }
+    },
+    {
+      "name": "Pytest: current file",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["${file}", "-v"],
+      "console": "integratedTerminal",
+      "env": { "PYTHONPATH": "${workspaceFolder}" }
+    }
+  ]
+}

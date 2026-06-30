@@ -1,0 +1,9 @@
+# App 1 -- India (NSE/BSE) regional configuration.
+# Static, non-secret parameters only. Credentials and connection strings belong in .env, never here.
+app_id: india
+exchange: NSE
+broker_name: zerodha_kite
+timezone: Asia/Kolkata
+market_open_local: "09:15"
+market_close_local: "15:30"
+square_off_local: "15:10"
