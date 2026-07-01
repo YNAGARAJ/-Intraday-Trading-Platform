@@ -62,9 +62,7 @@ def detect_orb(
 
     orb_cutoff = inferred_open + timedelta(minutes=opening_range_minutes)
 
-    orb_candles = [
-        c for c in session_candles if inferred_open <= c.time <= orb_cutoff
-    ]
+    orb_candles = [c for c in session_candles if inferred_open <= c.time <= orb_cutoff]
     post_orb_candles = [c for c in session_candles if c.time > orb_cutoff]
 
     if not orb_candles:
