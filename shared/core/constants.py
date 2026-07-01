@@ -348,3 +348,82 @@ REGIME_FEATURE_LOOKBACK: Final[int] = 50
 
 REGIME_ATR_SPIKE_LOOKBACK: Final[int] = 20
 """Rolling window (bars) used to compute the mean ATR for the spike detector."""
+
+# --- Stock Universe Filter (M09) ---
+WATCHLIST_TOP_N: Final[int] = 20
+"""Default number of stocks in the daily watchlist per exchange. Configurable via CLI
+--top-n flag; M18 orchestrator may override at runtime."""
+
+WATCHLIST_REDIS_TTL_SECONDS: Final[int] = 28_800
+"""Redis cache TTL for the current-session watchlist (8 hours ≈ one trading session).
+Key per exchange: ``universe:watchlist:<EXCHANGE>``."""
+
+WATCHLIST_CANDLE_LOOKBACK_DAYS: Final[int] = 5
+"""Days of 5-minute candle history fetched per instrument for alpha scoring. 5 days
+≈ 375 bars at NSE open hours, comfortably covering EMA(21) + ADX(14) warm-up."""
+
+WATCHLIST_MIN_CANDLES: Final[int] = 50
+"""Minimum candle bars required to compute a valid alpha score. Instruments with fewer
+bars receive composite_score = 0.0 and rank last in the watchlist."""
+
+COMPLIANCE_CACHE_MAX_AGE_HOURS: Final[int] = 24
+"""Max age of cached ASM/ESM/ban/MWPL lists before a fresh live fetch is attempted."""
+
+COMPLIANCE_CACHE_DIR: Final[str] = "shared/data/compliance_cache"
+"""Directory for compliance list JSON cache files (relative to repo root; gitignored).
+"""
+
+ALPHA_TREND_ADX_SCALE: Final[float] = 50.0
+"""ADX is divided by this value to normalise TrendScore to [0, 1].
+ADX > 50 is treated as 1.0 (very strong trend)."""
+
+ALPHA_VOL_BB_WIDTH_SCALE: Final[float] = 5.0
+"""Bollinger Band width % is divided by this to normalise VolScore to [0, 1].
+BB width of 5% (typical high-volatility intraday) maps to VolScore = 1.0."""
+
+ALPHA_LIQ_VOLUME_RATIO_CAP: Final[float] = 3.0
+"""Volume ratio (recent 5-bar / 20-bar average) is capped here before normalising to
+[0, 1]. A stock trading at 3× its average volume maps to LiqScore = 1.0."""
+
+ALPHA_LIQ_RECENT_BARS: Final[int] = 5
+"""Number of recent bars averaged as the 'recent volume' for LiqScore."""
+
+ALPHA_LIQ_AVERAGE_BARS: Final[int] = 20
+"""Rolling window (bars) for the baseline volume average in LiqScore."""
+
+MWPL_OI_THRESHOLD_BARS: Final[int] = 1
+"""Placeholder: MWPL OI check uses the latest available OI bar (M09 fetches daily)."""
+
+# β weight tables per regime — must sum to 1.0 within each row.
+# Sent β is reserved for M10 (SentScore always 0.0 until M10 is built).
+ALPHA_BETA_BULL_TREND: Final[tuple[float, float, float, float]] = (
+    0.50, 0.20, 0.20, 0.10
+)
+"""(β_Trend, β_Vol, β_Liq, β_Sent) for BULL_TREND: trend maximised per spec."""
+
+ALPHA_BETA_BEAR_TREND: Final[tuple[float, float, float, float]] = (
+    0.45, 0.25, 0.20, 0.10
+)
+"""(β_Trend, β_Vol, β_Liq, β_Sent) for BEAR_TREND: slightly higher vol weight for
+downside volatility."""
+
+ALPHA_BETA_MEAN_REVERTING: Final[tuple[float, float, float, float]] = (
+    0.20, 0.45, 0.25, 0.10
+)
+"""(β_Trend, β_Vol, β_Liq, β_Sent) for MEAN_REVERTING: vol and pivot proximity (Liq
+proxy) take structural precedence per spec."""
+
+# Strategy ID full names → 8-character compressed Zerodha Kite tag tokens.
+# Compression table lives here so M09 (assignment) and M13 (validation) share
+# the same source of truth. Keys are the canonical full names used throughout
+# the system; values are the STRATEGY_ID_MAX_LENGTH-capped tag strings.
+STRATEGY_ID_COMPRESSED: Final[dict[str, str]] = {
+    "EMA_VWAP_TREND": "EMAVWAP1",
+    "ORB_BREAKOUT": "ORBBRK01",
+    "MOMENTUM_RSI": "MOMRSI01",
+    "MEAN_REVERT_PIVOT": "MRVPVT01",
+    "ORDER_FLOW_ABSORPTION": "ORDFLW01",
+}
+
+# Threshold above which trend_score triggers EMA_VWAP_TREND assignment.
+STRATEGY_TREND_SCORE_THRESHOLD: Final[float] = 0.6
