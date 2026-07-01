@@ -568,3 +568,82 @@ mypy --strict clean (133 files). One formatting issue found and fixed (orb.py, c
   state) that calls `extract_features()` → `classify()` → `publish_regime_change()`. M09
   and M11, when built, may read the last-published regime from Redis rather than calling
   `classify()` directly.
+
+---
+
+### ADR-015: Stock Universe Filter — design decisions (M09)
+- **Date:** 2026-07-01
+- **Module:** M09
+- **Context:** The spec requires a pre-market alpha scoring pipeline that produces a
+  compliance-clean ranked watchlist for downstream signal generation (M11). Several design
+  choices require explicit decisions.
+
+**Alpha formula and β weights**
+
+- **Decision:** `Γ = β_Trend·TrendScore + β_Vol·VolScore + β_Liq·LiqScore + β_Sent·SentScore`.
+  β weights vary by regime: BULL_TREND maximises β_Trend (0.50); MEAN_REVERTING maximises
+  β_Vol (0.45); BEAR_TREND uses intermediate weights. SentScore is wired to 0.0 until M10
+  delivers the sentiment feed — the weight (0.10) is reserved and properly zeroed at scoring
+  time, not dropped from the formula.
+- **Alternatives considered:** Equal weights across all regimes — rejected; regime-aware
+  weights are the spec requirement and produce materially different rankings in trending vs.
+  mean-reverting regimes.
+
+**HIGH_VOL_CHAOS gate**
+
+- **Decision:** `run_universe_filter()` checks the regime as its first operation and returns
+  `[]` immediately if `regime == HIGH_VOL_CHAOS` (RULE 2). No scoring, no DB writes. The
+  CLI logs `universe_high_vol_chaos_skipped` and exits cleanly.
+- **Alternatives considered:** Score but mark entries as ineligible — rejected; returning
+  results would allow a caller bug to inadvertently use them. An empty return is unambiguous.
+
+**NSE compliance source — fail-open with JSON file cache**
+
+- **Decision:** Each compliance category (ASM, ESM, F&O ban, MWPL) is fetched from NSE
+  public APIs and cached as JSON with a 24-hour TTL under `shared/data/compliance_cache/`.
+  If both the live fetch and the stale cache fail, that category returns an empty exclusion
+  set (fail-open). This keeps the system operational during NSE API outages.
+- **Alternatives considered:** Fail-closed (block all trades on fetch failure) — rejected;
+  the compliance lists change infrequently and a stale or absent list is less dangerous than
+  halting the entire pipeline. An explicit ASM/ESM category will be added to the permanent
+  instrument master (M05 extension) if more durable exclusions are needed.
+
+**Redis TTL cache for watchlist**
+
+- **Decision:** `store_watchlist()` writes a JSON list to `universe:watchlist:<EXCHANGE>` in
+  Redis with an 8-hour TTL. `load_watchlist()` checks Redis first; on miss it queries the
+  `watchlist_history` hypertable. The Redis key uses `redis.set(..., ex=...)` (atomic set +
+  TTL) to avoid a delete/set race.
+- **Consequences:** A stale Redis cache (< 8 h old) will be served even if a new scoring
+  run produced different results. M11 should call `run_universe_filter()` directly before
+  market open rather than relying on the cache for same-day decisions.
+
+**Strategy ID assignment**
+
+- **Decision:** Strategy ID is assigned per entry based on regime + TrendScore threshold
+  (`STRATEGY_TREND_SCORE_THRESHOLD = 0.55`):
+  - BULL_TREND / BEAR_TREND + high TrendScore → `EMA_VWAP_TREND`
+  - BULL_TREND / BEAR_TREND + low TrendScore → `MOMENTUM_RSI`
+  - MEAN_REVERTING → `MEAN_REVERT_PIVOT` (regardless of TrendScore)
+  This satisfies SEBI's requirement that every order carry a Strategy-ID tag (RULE 1).
+- **Consequences:** The strategy ID in the watchlist is a pre-signal hint, not a binding
+  commitment. M11 may override it after full gate evaluation.
+
+**structlog PrintLoggerFactory fix (shared/core/logging.py)**
+
+- **Date:** 2026-07-01
+- **Context:** During M09 testing, all 29 M09 unit tests failed in the full pytest suite
+  with `ValueError: I/O operation on closed file.` The root cause was
+  `structlog.PrintLoggerFactory(file=sys.stdout)` in `configure_logging()`, which captured
+  a reference to `sys.stdout` at configure-time. When `tests/unit/core/test_logging.py`
+  ran with pytest's `capsys` fixture active, capsys replaced `sys.stdout` with a buffer;
+  `configure_logging()` captured that buffer; after the test ended, capsys closed the
+  buffer but the factory retained the reference. Subsequent logger calls in M09 production
+  code wrote to the closed buffer and crashed.
+- **Decision:** Remove `file=sys.stdout` from `PrintLoggerFactory()`; let structlog
+  evaluate `sys.stdout` dynamically via `attrs.Factory(lambda: sys.stdout)` inside
+  `PrintLogger`. Combined with `cache_logger_on_first_use=False` (already set), this
+  resolves `sys.stdout` on every log call — matching the current `sys.stdout` at write
+  time, not the one captured at configure-time.
+- **Consequences:** Negligible (microseconds per log call, not on the RULE 4 hot path).
+  All 591 unit tests pass after the fix.

@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import numpy as np
+import numpy.typing as npt
 from psycopg2.extensions import connection as PGConnection  # noqa: N812
 
 from shared.regime.models import MarketRegime
@@ -34,7 +35,9 @@ _NOW = datetime(2026, 7, 1, 6, 0, tzinfo=timezone.utc)
 _N_BARS = 80  # enough for EMA21 + ADX14 + BB20
 
 
-def _candles(n: int = _N_BARS, uptrend: bool = True) -> dict[str, np.ndarray]:
+def _candles(
+    n: int = _N_BARS, uptrend: bool = True
+) -> dict[str, npt.NDArray[np.float64]]:
     if uptrend:
         close = np.linspace(80.0, 120.0, n, dtype=np.float64)
     else:

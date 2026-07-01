@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import numpy as np
+import numpy.typing as npt
 
 from shared.core.constants import WATCHLIST_MIN_CANDLES, WATCHLIST_TOP_N
 from shared.regime.models import MarketRegime
@@ -32,7 +33,7 @@ def _make_exclusion_list(
 def _candles(
     n: int = WATCHLIST_MIN_CANDLES + 10,
     uptrend: bool = True,
-) -> dict[str, np.ndarray]:
+) -> dict[str, npt.NDArray[np.float64]]:
     if uptrend:
         close = np.linspace(80.0, 120.0, n, dtype=np.float64)
     else:

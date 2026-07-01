@@ -113,11 +113,11 @@ every module standalone-runnable, tested, linted, and committed before the next 
 
 ## Current build state (updated 2026-07-01)
 
-**Last completed module:** M08 — Market Regime Classifier
-**Next module to build:** M09 — Stock Universe Filter
+**Last completed module:** M09 — Stock Universe Filter
+**Next module to build:** M10 — Sentiment & News Agent
 
-Verified clean as of this date: 488 tests passing (58 skipped: integration tests requiring live
-TimescaleDB/Redis), ruff clean, mypy --strict clean (97 files). 85 new M08 unit tests all pass.
+Verified clean as of this date: 591 unit tests passing (58 skipped: integration tests requiring
+live TimescaleDB/Redis), ruff clean, mypy --strict clean. ~107 new M09 unit tests all pass.
 
 **M01–M08 independent audit completed 2026-07-01** (commit 1c55be6). All findings resolved:
 - `promote_classifier(backtest_metrics: BacktestMetrics)` — `Any` removed (was S2)
@@ -126,6 +126,12 @@ TimescaleDB/Redis), ruff clean, mypy --strict clean (97 files). 85 new M08 unit 
 - ASX open-time function renamed to `get_ticker_open_time` (was G5; old name was wrong)
 - ADR-013 (M08 design) and ADR-014 (scheduling deferred to M18) added
 - README.md created for all M01–M08 modules
+
+**M09 notes:**
+- `structlog.PrintLoggerFactory(file=sys.stdout)` → `PrintLoggerFactory()` in
+  `shared/core/logging.py` — fixes capsys/stdout closed-file crash (ADR-015).
+- SentScore = 0.0 until M10 delivers sentiment feed; β_Sent weight (0.10) reserved.
+- Compliance source fails-open (empty exclusion set) if NSE API unreachable.
 
 **Known API names (use these exactly, not summary paraphrases):**
 - Config live-trading check: `settings.is_live_trading_enabled` (not `is_live_trading_active`)
@@ -145,6 +151,15 @@ TimescaleDB/Redis), ruff clean, mypy --strict clean (97 files). 85 new M08 unit 
 - Regime enum: `MarketRegime` — BULL_TREND, BEAR_TREND, MEAN_REVERTING, HIGH_VOL_CHAOS
 - Redis stream key: `REGIME_REDIS_STREAM = "regime:changes"` — `RegimeChanged` proto payload
 - ASX staggered open: `get_ticker_open_time(symbol, market_date, tz)` — `shared/session_manager.py`
+- Universe filter: `run_universe_filter(instruments, candles_by_symbol, regime, exclusion_list)`
+- Alpha scoring: `score_stock(close, high, low, volume, regime)` → `AlphaComponents`
+- Composite score: `compute_composite(components, weights)` — `shared/universe/scoring.py`
+- Regime β-weights: `BETA_WEIGHTS` dict — `MarketRegime` → `AlphaWeights`
+- Universe store: `store_watchlist(entries, conn, redis_client)` — TimescaleDB + Redis
+- Universe load: `load_watchlist(exchange, conn, redis_client, top_n)` → `list[WatchlistEntry]`
+- Universe schema: `apply_universe_schema(conn)` — `watchlist_history` hypertable
+- Compliance: `NSEComplianceSource().fetch()` → `ComplianceExclusionList`
+- Redis watchlist key: `universe:watchlist:<EXCHANGE>` — 8-hour TTL
 
 ## Tech stack summary
 

@@ -106,26 +106,26 @@ class TestExclusionReason:
 
 class TestSymbolParsers:
     def test_asm_extracts_symbol_key(self) -> None:
-        data = [{"symbol": "RELIANCE"}, {"symbol": "TATA"}]
+        data: list[dict[str, object]] = [{"symbol": "RELIANCE"}, {"symbol": "TATA"}]
         result = _symbols_from_asm(data)
         assert "RELIANCE" in result
         assert "TATA" in result
 
     def test_asm_handles_capital_symbol_key(self) -> None:
-        data = [{"Symbol": "hdfc"}]
+        data: list[dict[str, object]] = [{"Symbol": "hdfc"}]
         result = _symbols_from_asm(data)
         assert "HDFC" in result
 
     def test_esm_extracts_symbol(self) -> None:
-        data = [{"symbol": "YESBANK"}]
+        data: list[dict[str, object]] = [{"symbol": "YESBANK"}]
         assert "YESBANK" in _symbols_from_esm(data)
 
     def test_ban_extracts_symbol(self) -> None:
-        data = [{"symbol": "VEDL"}]
+        data: list[dict[str, object]] = [{"symbol": "VEDL"}]
         assert "VEDL" in _symbols_from_ban(data)
 
     def test_mwpl_threshold_inclusion(self) -> None:
-        data = [
+        data: list[dict[str, object]] = [
             {"symbol": "A", "pct_mwpl": "92.5"},
             {"symbol": "B", "pct_mwpl": "85.0"},
         ]
@@ -134,17 +134,17 @@ class TestSymbolParsers:
         assert "B" not in result  # below 90%
 
     def test_mwpl_handles_numeric_pct(self) -> None:
-        data = [{"symbol": "C", "pct_mwpl": 95.0}]
+        data: list[dict[str, object]] = [{"symbol": "C", "pct_mwpl": 95.0}]
         result = _symbols_from_mwpl(data)
         assert "C" in result
 
     def test_mwpl_skips_unparseable_pct(self) -> None:
-        data = [{"symbol": "D", "pct_mwpl": "N/A"}]
+        data: list[dict[str, object]] = [{"symbol": "D", "pct_mwpl": "N/A"}]
         result = _symbols_from_mwpl(data)
         assert "D" not in result
 
     def test_mwpl_missing_symbol_skipped(self) -> None:
-        data = [{"pct_mwpl": "95.0"}]
+        data: list[dict[str, object]] = [{"pct_mwpl": "95.0"}]
         result = _symbols_from_mwpl(data)
         assert len(result) == 0
 
@@ -218,11 +218,12 @@ class TestNSEComplianceSource:
         assert isinstance(result, ComplianceExclusionList)
         assert result.fetched_at.tzinfo is not None
 
-    @patch("shared.universe.compliance._fetch_url")
+    @patch("shared.universe.compliance._get_category_data")
     def test_fetch_fail_open_on_network_error(
-        self, mock_fetch: MagicMock
+        self, mock_get: MagicMock
     ) -> None:
-        mock_fetch.return_value = None
+        # Patch _get_category_data (not _fetch_url) to bypass the file cache.
+        mock_get.return_value = []
         source = NSEComplianceSource()
         result = source.fetch()
         # All sets empty — fail open
@@ -231,9 +232,10 @@ class TestNSEComplianceSource:
         assert len(result.ban_symbols) == 0
         assert len(result.mwpl_exceeded_symbols) == 0
 
-    @patch("shared.universe.compliance._fetch_url")
-    def test_symbols_populated_from_live(self, mock_fetch: MagicMock) -> None:
-        mock_fetch.side_effect = [
+    @patch("shared.universe.compliance._get_category_data")
+    def test_symbols_populated_from_live(self, mock_get: MagicMock) -> None:
+        # Patch _get_category_data (not _fetch_url) to bypass the file cache.
+        mock_get.side_effect = [
             [{"symbol": "ASM1"}],  # asm
             [{"symbol": "ESM1"}],  # esm
             [{"symbol": "BAN1"}],  # ban

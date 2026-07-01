@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 
 from shared.core.constants import (
@@ -35,20 +36,24 @@ from shared.universe.scoring import (
 _NOW = datetime(2026, 7, 1, 6, 0, tzinfo=timezone.utc)
 
 
-def _flat_close(n: int = 100, price: float = 100.0) -> np.ndarray:
+def _flat_close(n: int = 100, price: float = 100.0) -> npt.NDArray[np.float64]:
     """Constant price series — EMA ≈ close, ADX ≈ low."""
     return np.full(n, price, dtype=np.float64)
 
 
-def _trending_up(n: int = 100, start: float = 80.0, end: float = 120.0) -> np.ndarray:
+def _trending_up(
+    n: int = 100, start: float = 80.0, end: float = 120.0
+) -> npt.NDArray[np.float64]:
     return np.linspace(start, end, n, dtype=np.float64)
 
 
-def _trending_down(n: int = 100, start: float = 120.0, end: float = 80.0) -> np.ndarray:
+def _trending_down(
+    n: int = 100, start: float = 120.0, end: float = 80.0
+) -> npt.NDArray[np.float64]:
     return np.linspace(start, end, n, dtype=np.float64)
 
 
-def _volume_array(n: int = 100, base: float = 1_000_000.0) -> np.ndarray:
+def _volume_array(n: int = 100, base: float = 1_000_000.0) -> npt.NDArray[np.float64]:
     return np.full(n, base, dtype=np.float64)
 
 

@@ -146,7 +146,7 @@ def _redis_key(exchange: str) -> str:
 def store_watchlist(
     entries: list[WatchlistEntry],
     conn: psycopg2.extensions.connection,
-    redis_client: redis.Redis,  # type: ignore[type-arg]
+    redis_client: redis.Redis,
 ) -> None:
     """Persist watchlist entries to TimescaleDB and cache them in Redis.
 
@@ -200,7 +200,7 @@ def store_watchlist(
 def load_watchlist(
     exchange: str,
     conn: psycopg2.extensions.connection,
-    redis_client: redis.Redis,  # type: ignore[type-arg]
+    redis_client: redis.Redis,
     top_n: int = WATCHLIST_TOP_N,
 ) -> list[WatchlistEntry]:
     """Load the latest watchlist for an exchange, Redis-first with DB fallback.
@@ -215,7 +215,8 @@ def load_watchlist(
         List of WatchlistEntry sorted by rank ascending.  Empty list if no data.
     """
     key = _redis_key(exchange)
-    cached = redis_client.get(key)
+    # redis-py 5.x stubs type .get() as Awaitable[Any]|Any; cast to concrete type.
+    cached = cast(bytes | None, redis_client.get(key))
     if cached is not None:
         try:
             raw: list[dict[str, object]] = json.loads(

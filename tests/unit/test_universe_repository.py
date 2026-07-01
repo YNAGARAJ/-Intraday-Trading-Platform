@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from shared.regime.models import MarketRegime
 from shared.universe.models import AlphaComponents, WatchlistEntry
@@ -131,7 +131,8 @@ class TestStoreWatchlist:
         mock_conn.cursor.assert_not_called()
         mock_redis.set.assert_not_called()
 
-    def test_redis_set_called_with_ttl(self) -> None:
+    @patch("shared.universe.repository.psycopg2.extras.execute_batch")
+    def test_redis_set_called_with_ttl(self, _mock_batch: MagicMock) -> None:
         mock_conn = MagicMock()
         mock_redis = MagicMock()
         entries = [_make_entry()]
@@ -140,7 +141,8 @@ class TestStoreWatchlist:
         _, kwargs = mock_redis.set.call_args
         assert "ex" in kwargs
 
-    def test_redis_key_matches_exchange(self) -> None:
+    @patch("shared.universe.repository.psycopg2.extras.execute_batch")
+    def test_redis_key_matches_exchange(self, _mock_batch: MagicMock) -> None:
         mock_conn = MagicMock()
         mock_redis = MagicMock()
         entries = [_make_entry()]
@@ -148,7 +150,8 @@ class TestStoreWatchlist:
         args, _ = mock_redis.set.call_args
         assert args[0] == "universe:watchlist:NSE"
 
-    def test_db_commit_called(self) -> None:
+    @patch("shared.universe.repository.psycopg2.extras.execute_batch")
+    def test_db_commit_called(self, _mock_batch: MagicMock) -> None:
         mock_conn = MagicMock()
         mock_redis = MagicMock()
         entries = [_make_entry()]
