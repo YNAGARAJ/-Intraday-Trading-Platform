@@ -119,6 +119,14 @@ every module standalone-runnable, tested, linted, and committed before the next 
 Verified clean as of this date: 488 tests passing (58 skipped: integration tests requiring live
 TimescaleDB/Redis), ruff clean, mypy --strict clean (97 files). 85 new M08 unit tests all pass.
 
+**M01–M08 independent audit completed 2026-07-01** (commit 1c55be6). All findings resolved:
+- `promote_classifier(backtest_metrics: BacktestMetrics)` — `Any` removed (was S2)
+- `list_model_versions()` logs `mlflow_list_versions_failed` warning on exception (was S1)
+- 5 DB CLIs catch `psycopg2.OperationalError` and log `db_connection_failed` (was Q1)
+- ASX open-time function renamed to `get_ticker_open_time` (was G5; old name was wrong)
+- ADR-013 (M08 design) and ADR-014 (scheduling deferred to M18) added
+- README.md created for all M01–M08 modules
+
 **Known API names (use these exactly, not summary paraphrases):**
 - Config live-trading check: `settings.is_live_trading_enabled` (not `is_live_trading_active`)
 - SQLite failover buffer: `SQLiteFailoverBuffer` (not `SQLiteBuffer`)
@@ -136,6 +144,7 @@ TimescaleDB/Redis), ruff clean, mypy --strict clean (97 files). 85 new M08 unit 
 - MLflow registry: `save_classifier(clf, metrics)`, `load_classifier(run_id)`, `promote_classifier(run_id, metrics)`
 - Regime enum: `MarketRegime` — BULL_TREND, BEAR_TREND, MEAN_REVERTING, HIGH_VOL_CHAOS
 - Redis stream key: `REGIME_REDIS_STREAM = "regime:changes"` — `RegimeChanged` proto payload
+- ASX staggered open: `get_ticker_open_time(symbol, market_date, tz)` — `shared/session_manager.py`
 
 ## Tech stack summary
 
