@@ -462,3 +462,49 @@ SENTIMENT_DEFAULT_MODEL: Final[str] = "groq/llama-3.1-8b-instant"
 """Default LiteLLM model string for headline scoring (Tier 1 Groq 8B).
 Switched to a more capable model only when ``COMPLEX_MODEL_MAX_CALLS_PER_DAY``
 budget permits — see RULE 4 (hot path is zero LLM)."""
+
+# --- Signal Generation Agent (M11) ---
+SIGNAL_REDIS_STREAM: Final[str] = "signals:generated"
+"""Redis Stream key for SignalGenerated protobuf messages (consumed by M12/M14)."""
+
+SIGNAL_EXPIRY_MINUTES: Final[int] = 5
+"""Signals are valid for this many minutes after generation; stale signals dropped."""
+
+SIGNAL_EXPLAIN_MODEL: Final[str] = "groq/llama-3.1-70b-versatile"
+"""LiteLLM model string for async post-signal explanation (Tier 2 Groq 70B)."""
+
+SIGNAL_DEDUP_WINDOW_SECONDS: Final[int] = 60
+"""Min seconds between identical (symbol + direction) signals; dedup window."""
+
+GATE_6_SR_PROXIMITY_PCT: Final[float] = 0.5
+"""Price must be within this percentage of a support/resistance level to pass Gate 6."""
+
+GATE_3_ABSORPTION_VOLUME_RATIO: Final[float] = 2.0
+"""Volume ≥ this multiple of rolling average to suspect absorption (Gate 3)."""
+
+GATE_3_ABSORPTION_DELTA_RATIO: Final[float] = 0.2
+"""If |volume_delta| / total_volume < this ratio at high volume, absorption flagged."""
+
+GATE_2_INDICATOR_BASE_CONFIDENCE: Final[float] = 0.40
+"""Base confidence once Gates 1-7 all pass; Gate 2/8 bonuses are added on top."""
+
+GATE_2_PER_INDICATOR_BONUS: Final[float] = 0.02
+"""Confidence bonus per agreeing indicator in Gate 2 (max 0.16 for 8/8 agreement)."""
+
+GATE_3_CONFIDENCE_BONUS: Final[float] = 0.07
+"""Confidence bonus when Gate 3 (order flow) passes with no absorption detected."""
+
+GATE_4_CONFIDENCE_BONUS: Final[float] = 0.07
+"""Confidence bonus for a confirming candlestick pattern (Gate 4), capped at 0.07."""
+
+GATE_5_CONFIDENCE_BONUS: Final[float] = 0.10
+"""Confidence bonus for multi-timeframe pattern confirmation (Gate 5)."""
+
+GATE_6_CONFIDENCE_BONUS: Final[float] = 0.05
+"""Confidence bonus when price is near a strong S/R level (Gate 6)."""
+
+GATE_8_DIVERGENCE_PENALTY: Final[float] = 0.10
+"""Confidence reduction when Gate 8 detects divergence against the signal direction."""
+
+GATE_8_ALIGNMENT_BONUS: Final[float] = 0.05
+"""Confidence boost when Gate 8 indicators align with signal direction."""
