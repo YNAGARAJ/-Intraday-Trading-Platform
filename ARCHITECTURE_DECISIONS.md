@@ -481,3 +481,90 @@ mypy --strict clean (133 files). One formatting issue found and fixed (orb.py, c
   `SignalFn` type alias (`Callable[[list[OHLCVCandle], dict[str, float]], tuple[list[bool],
   list[bool]]]`) is the contract any M11+ strategy must satisfy to participate in
   walk-forward optimisation.
+
+- **Note (ADR-012 addendum — storage location):** The spec architecture diagram shows
+  `backtest_results` in the pgvector PostgreSQL instance. The implementation uses the
+  TimescaleDB connection (`TIMESCALE_DSN`) for this table. Both are PostgreSQL; the pgvector
+  instance is reserved for M18 episodic memory (vector similarity search). Since
+  `backtest_results` is a plain relational table with no time-series or vector requirements,
+  TimescaleDB is the appropriate single writable database for all non-vector tabular data,
+  consistent with `instruments` and `corporate_actions` (M05, same decision).
+
+---
+
+### ADR-013: Market Regime Classifier — design decisions (M08)
+- **Date:** 2026-07-01
+- **Module:** M08
+- **Context:** Several non-obvious decisions arose during M08's build that downstream modules
+  (M09 universe filter, M11 signal engine, M18 orchestrator) need to know about.
+- **Decision:**
+
+  1. **RULE 2 hard override is evaluated before any model inference.** `RegimeClassifier.classify()`
+     checks `_is_chaos(features)` as its first instruction: if `features.vix > 25.0` (strict
+     greater-than; VIX exactly 25.0 does NOT trigger) or `features.atr_spike is True`, it
+     returns `HIGH_VOL_CHAOS` with `confidence=1.0` without invoking the RF or HMM. This
+     guarantees RULE 2 regardless of model state.
+
+  2. **HMM state mapping uses RF majority-vote post-training.** HMM hidden states have no
+     inherent semantic label. After fitting, each HMM state is labelled by majority vote of
+     the RF's regime predictions for all training samples assigned to that state. The mapping
+     is stored alongside the HMM in MLflow and restored at load time.
+
+  3. **Feature set deviation from spec.** The spec lists 9 features including put-call ratio
+     and order flow delta. Both require data sources not yet available (options chain for
+     put-call ratio, bid-ask-aware tick classification for true order flow delta). The
+     implementation uses 8 features: ADX, RSI, BB width, ATR%, VWAP deviation, volume ratio
+     (recent/average — a candle-based proxy for volume delta), VIX level, ATR spike flag.
+     Put-call ratio and order flow delta are deferred until M10/M16 provide the required
+     data feeds. The `RegimeFeatures` field is named `volume_ratio` not `volume_delta` to
+     accurately reflect what is computed; the proto field `volume_delta` receives this value
+     (known naming mismatch, documented here — correcting the proto field name is a breaking
+     proto change deferred to a future version).
+
+  4. **MLflow `list_model_versions()` catches all exceptions and logs a structured warning.**
+     MLflow connectivity failures at inspection time must not crash the caller. The function
+     returns `[]` and logs `mlflow_list_versions_failed` so ops tooling can detect
+     connectivity problems.
+
+  5. **Rule-based fallback when not fitted.** An unfitted `RegimeClassifier` classifies via
+     explicit ADX/RSI thresholds (ADX>25 + RSI>55 → BULL, ADX>25 + RSI<45 → BEAR, else
+     MEAN_REVERTING). This ensures the module is useful immediately during warm-up before
+     training data is available, and during M18 orchestrator startup before the first MLflow
+     model is loaded.
+
+- **Alternatives considered:**
+  - Using VIX=25 (inclusive) as the chaos threshold — rejected; `>` (strict) is the
+    conventional interpretation of "above 25" and ensures VIX exactly at 25 is not treated
+    as chaos (verified in `test_regime_classifier.py`).
+  - Using put-call ratio and order flow delta as zero-valued placeholders — rejected as
+    misleading; zero PCR is a valid value (all calls, no puts), so a zero placeholder would
+    produce wrong regime classifications.
+
+- **Consequences:** M09 (universe filter) reads regime from Redis stream `regime:changes`
+  (key `REGIME_REDIS_STREAM`) via `read_latest_regime()`. M11 signal engine Gate 1 must
+  block all entries when regime is `HIGH_VOL_CHAOS`. M18 orchestrator wires the 5-minute
+  reclassification loop. Once M10 provides sentiment/PCR data and M16 provides tick-level
+  fills, `RegimeFeatures` should be extended with `put_call_ratio` and `order_flow_delta`
+  fields and the proto updated accordingly.
+
+---
+
+### ADR-014: M08 periodic classification loop deferred to M18
+- **Date:** 2026-07-01
+- **Module:** M08 / M18
+- **Context:** The spec implies M08 should classify the market regime on a recurring
+  schedule (the regime must be current when M11 evaluates Gate 1). The M08 build provides
+  `RegimeClassifier.classify()` and `publish_regime_change()` as callable functions, but
+  does not include a scheduled loop that calls them every 5 minutes.
+- **Decision:** The scheduling loop is deferred to M18 (Agent Orchestrator, LangGraph).
+  M18 owns the agent state graph and controls all recurring agent invocations; embedding a
+  `while True: sleep(300)` loop inside M08 would create a second scheduler that conflicts
+  with M18's graph. M08 is invocable both as a one-shot CLI (`python -m shared.regime`)
+  and as a library (`classify(features)`) — both patterns work today without a scheduler.
+- **Alternatives considered:** Background thread in M08 — rejected; a thread inside a
+  library module creates implicit side effects on import and is incompatible with M18's
+  LangGraph event loop model.
+- **Consequences:** M18 must wire a periodic node (every 5 minutes during OPEN session
+  state) that calls `extract_features()` → `classify()` → `publish_regime_change()`. M09
+  and M11, when built, may read the last-published regime from Redis rather than calling
+  `classify()` directly.

@@ -21,6 +21,8 @@ import argparse
 import sys
 from datetime import datetime, timedelta, timezone
 
+import psycopg2
+
 from shared.core.config import load_settings
 from shared.core.constants import REGIME_FEATURE_LOOKBACK
 from shared.core.logging import configure_logging, get_logger
@@ -98,7 +100,11 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(0)
 
     settings = load_settings()
-    conn = get_connection(settings)
+    try:
+        conn = get_connection(settings)
+    except psycopg2.OperationalError as exc:
+        logger.error("db_connection_failed", error=str(exc))
+        sys.exit(1)
     try:
         apply_schema(conn)
         repo = OHLCVRepository(conn)

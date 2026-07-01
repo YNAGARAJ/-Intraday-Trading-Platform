@@ -13,9 +13,11 @@ graceful-degradation pattern M03's backfill CLI uses for an unreachable data sou
 """
 
 import argparse
+import sys
 import time
 from datetime import UTC, datetime, timedelta
 
+import psycopg2
 import redis as redis_lib
 
 from shared.core.config import load_settings
@@ -47,7 +49,11 @@ def main() -> None:
     configure_logging("INFO")
     # app_id is arbitrary here -- only settings.timescale_dsn/redis_url are used.
     settings = load_settings(app_id=AppId.INDIA)
-    conn = get_connection(settings)
+    try:
+        conn = get_connection(settings)
+    except psycopg2.OperationalError as exc:
+        logger.error("db_connection_failed", error=str(exc))
+        sys.exit(1)
     redis_client = redis_lib.Redis.from_url(settings.redis_url, decode_responses=True)
     try:
         apply_schema(conn)

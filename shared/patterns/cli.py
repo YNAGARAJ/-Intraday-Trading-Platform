@@ -11,7 +11,10 @@ Passing --timeframes 1m,5m,15m runs multi-timeframe analysis instead.
 """
 
 import argparse
+import sys
 from datetime import UTC, datetime, timedelta
+
+import psycopg2
 
 from shared.core.config import load_settings
 from shared.core.constants import SR_LOOKBACK_CANDLES
@@ -48,7 +51,11 @@ def main() -> None:
 
     configure_logging("INFO")
     settings = load_settings(app_id=AppId.INDIA)
-    conn = get_connection(settings)
+    try:
+        conn = get_connection(settings)
+    except psycopg2.OperationalError as exc:
+        logger.error("db_connection_failed", error=str(exc))
+        sys.exit(1)
     try:
         apply_schema(conn)
         repository = OHLCVRepository(conn)

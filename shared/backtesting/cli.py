@@ -25,6 +25,8 @@ import sys
 import tempfile
 from datetime import date, datetime, timedelta, timezone
 
+import psycopg2
+
 from shared.backtesting.engine import ema_crossover_signals, run_backtest
 from shared.backtesting.models import BacktestConfig
 from shared.backtesting.report import generate_reports
@@ -99,7 +101,11 @@ def main(argv: list[str] | None = None) -> None:
 
     report_dir = args.report_dir or tempfile.mkdtemp(prefix="backtest_")
     settings = load_settings()
-    conn = get_connection(settings)
+    try:
+        conn = get_connection(settings)
+    except psycopg2.OperationalError as exc:
+        logger.error("db_connection_failed", error=str(exc))
+        sys.exit(1)
     try:
         apply_schema(conn)
         apply_backtest_schema(conn)

@@ -24,11 +24,11 @@ from __future__ import annotations
 import os
 import pickle
 import tempfile
-from typing import Any
 
 import mlflow
 import mlflow.sklearn
 
+from shared.backtesting.models import BacktestMetrics
 from shared.backtesting.promotion_gate import check_promotion_gate
 from shared.core.constants import REGIME_MLFLOW_EXPERIMENT
 from shared.core.logging import get_logger
@@ -132,7 +132,7 @@ def load_classifier(run_id: str) -> RegimeClassifier:
 
 def promote_classifier(
     run_id: str,
-    backtest_metrics: Any,
+    backtest_metrics: BacktestMetrics,
 ) -> list[str]:
     """Gate model promotion on RULE 6 metrics and transition to Production.
 
@@ -183,7 +183,8 @@ def list_model_versions() -> list[dict[str, str]]:
     client = mlflow.tracking.MlflowClient()
     try:
         versions = client.search_model_versions(f"name='{_REGISTERED_MODEL_NAME}'")
-    except Exception:
+    except Exception as exc:
+        logger.warning("mlflow_list_versions_failed", error=str(exc))
         return []
     return [
         {

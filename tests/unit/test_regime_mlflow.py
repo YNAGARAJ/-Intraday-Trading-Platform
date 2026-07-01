@@ -139,9 +139,15 @@ class TestListModelVersions:
         assert result[0]["version"] == "1"
         assert result[0]["stage"] == "Production"
 
+    @patch("shared.regime.mlflow_registry.logger")
     @patch("shared.regime.mlflow_registry.mlflow")
-    def test_returns_empty_on_exception(self, mock_mlflow: MagicMock) -> None:
+    def test_returns_empty_on_exception_and_logs_warning(
+        self, mock_mlflow: MagicMock, mock_logger: MagicMock
+    ) -> None:
         client = mock_mlflow.tracking.MlflowClient.return_value
         client.search_model_versions.side_effect = Exception("connection refused")
         result = list_model_versions()
         assert result == []
+        mock_logger.warning.assert_called_once_with(
+            "mlflow_list_versions_failed", error="connection refused"
+        )

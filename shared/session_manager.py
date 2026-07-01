@@ -9,7 +9,7 @@ Owns four things, per MASTER_BUILD_PROMPT_FINAL.MD's M02 description:
    Weekend closure is always known unconditionally, with no fetch required.
 2. The session state machine (`SessionStateMachine`): CLOSED -> PRE_MARKET -> OPEN ->
    SNAPSHOT_WINDOW -> APPROACHING_CLOSE -> CLOSED, plus the SEBI snapshot-window flag.
-3. The ASX staggered-open ticker group registry (`get_ticker_group_open_time`).
+3. The ASX staggered-open ticker group registry (`get_ticker_open_time`).
 4. The auto square-off scheduler (`SquareOffScheduler`, fires its warning at T-20min).
 
 Plus the `@market_hours_only` decorator factory used by later modules to gate
@@ -271,7 +271,7 @@ ASX_TICKER_GROUPS: Final[tuple[tuple[str, str, time], ...]] = (
 """Per spec: tolerance is +/- ASX_GROUP_OPEN_TOLERANCE_SECONDS around each open time."""
 
 
-def get_ticker_group_open_time(
+def get_ticker_open_time(
     symbol: str, market_date: date, tz: ZoneInfo
 ) -> datetime:
     """Return the ASX staggered-open datetime for `symbol`'s alphabetical group.
@@ -513,7 +513,7 @@ def main() -> None:
     sydney_tz = ZoneInfo("Australia/Sydney")
     today = datetime.now(sydney_tz).date()
     example_symbol = "BHP"
-    open_time = get_ticker_group_open_time(example_symbol, today, sydney_tz)
+    open_time = get_ticker_open_time(example_symbol, today, sydney_tz)
     logger.info(
         "asx_staggered_open_example",
         symbol=example_symbol,

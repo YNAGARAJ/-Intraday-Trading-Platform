@@ -11,6 +11,9 @@ still proceed, mirroring M02/M03's graceful-degradation pattern.
 """
 
 import argparse
+import sys
+
+import psycopg2
 
 from shared.core.config import load_settings
 from shared.core.exceptions import CorporateActionFetchError, InstrumentFetchError
@@ -38,7 +41,11 @@ def main() -> None:
     configure_logging("INFO")
     # app_id is arbitrary here -- only settings.timescale_dsn is used.
     settings = load_settings(app_id=AppId.INDIA)
-    conn = get_connection(settings)
+    try:
+        conn = get_connection(settings)
+    except psycopg2.OperationalError as exc:
+        logger.error("db_connection_failed", error=str(exc))
+        sys.exit(1)
     try:
         apply_schema(conn)
         instrument_repo = InstrumentRepository(conn)

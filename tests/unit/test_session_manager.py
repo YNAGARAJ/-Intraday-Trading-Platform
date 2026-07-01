@@ -29,7 +29,7 @@ from shared.session_manager import (
     NSEHolidaySource,
     SessionStateMachine,
     SquareOffScheduler,
-    get_ticker_group_open_time,
+    get_ticker_open_time,
     market_hours_only,
 )
 
@@ -354,7 +354,7 @@ class TestAsxStaggeredOpen:
     )
     def test_group_open_time_by_symbol(self, symbol: str, expected_hhmmss: str) -> None:
         market_date = date(2026, 6, 30)
-        result = get_ticker_group_open_time(symbol, market_date, AEST)
+        result = get_ticker_open_time(symbol, market_date, AEST)
 
         assert result.strftime("%H:%M:%S") == expected_hhmmss
         assert result.date() == market_date
@@ -362,8 +362,8 @@ class TestAsxStaggeredOpen:
 
     def test_lowercase_symbol_normalized(self) -> None:
         market_date = date(2026, 6, 30)
-        upper = get_ticker_group_open_time("BHP", market_date, AEST)
-        lower = get_ticker_group_open_time("bhp", market_date, AEST)
+        upper = get_ticker_open_time("BHP", market_date, AEST)
+        lower = get_ticker_open_time("bhp", market_date, AEST)
 
         assert upper == lower
 
@@ -371,15 +371,15 @@ class TestAsxStaggeredOpen:
         market_date = date(2026, 6, 30)
         for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
             # Must not raise for any single letter.
-            get_ticker_group_open_time(letter, market_date, AEST)
+            get_ticker_open_time(letter, market_date, AEST)
 
     def test_empty_symbol_raises(self) -> None:
         with pytest.raises(ValueError, match="non-empty"):
-            get_ticker_group_open_time("", date(2026, 6, 30), AEST)
+            get_ticker_open_time("", date(2026, 6, 30), AEST)
 
     def test_non_letter_symbol_raises(self) -> None:
         with pytest.raises(ValueError, match="A-Z"):
-            get_ticker_group_open_time("1ABC", date(2026, 6, 30), AEST)
+            get_ticker_open_time("1ABC", date(2026, 6, 30), AEST)
 
     def test_groups_cover_full_alphabet_contiguously(self) -> None:
         covered = "".join(f"{start}-{end} " for start, end, _ in ASX_TICKER_GROUPS)
