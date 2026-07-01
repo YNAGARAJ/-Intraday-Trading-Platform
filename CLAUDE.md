@@ -113,11 +113,11 @@ every module standalone-runnable, tested, linted, and committed before the next 
 
 ## Current build state (updated 2026-07-01)
 
-**Last completed module:** M06 — Pattern Recognition Engine (commit `227f76c`)
-**Next module to build:** M07 — Backtesting Engine
+**Last completed module:** M07 — Backtesting Engine
+**Next module to build:** M08 — Market Regime Classifier
 
-Verified clean as of this date: 361 tests (359 passing + 2 skipped), ruff clean, mypy --strict
-clean (133 files). All 6 M06 VERIFY integration tests pass against real TimescaleDB.
+Verified clean as of this date: 403 tests passing (52 skipped: integration tests requiring live
+TimescaleDB/Redis), ruff clean, mypy --strict clean (155 files). 81 new M07 unit tests all pass.
 
 **Known API names (use these exactly, not summary paraphrases):**
 - Config live-trading check: `settings.is_live_trading_enabled` (not `is_live_trading_active`)
@@ -125,6 +125,11 @@ clean (133 files). All 6 M06 VERIFY integration tests pass against real Timescal
 - Tick validation: `TickSequenceValidator` (not `validate_tick`)
 - Indicator registry: `all_indicators()` (not `get_registry()`)
 - Continuous aggregates: named `ohlcv_5m`, `ohlcv_15m`, `ohlcv_1h` (not `cagg_ohlcv_*`)
+- Backtest storage: `apply_backtest_schema()`, `save_result()`, `load_result()`
+- Slippage model: `sample_slippage_bps(signal_time, spread_bps, rng)` — `shared/backtesting/slippage.py`
+- Promotion gate: `check_promotion_gate(metrics)` → list of failure strings (empty = pass)
+- EMA strategy: `ema_crossover_signals(candles)`, `run_backtest(config, candles, entries, exits)`
+- Walk-forward: `run_walk_forward(config, candles, signal_fn, param_grid)`
 
 ## Tech stack summary
 

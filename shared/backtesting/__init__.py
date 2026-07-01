@@ -1,4 +1,6 @@
-"""Vectorbt engine with fitted slippage model -- implemented in M07.
+"""M07 Backtesting Engine.
 
-Placeholder package created by the M01 scaffold.
+Vectorbt-powered backtester with log-normal slippage injection (RULE 6),
+markout curve analyzer, walk-forward optimisation, HTML/CSV report generation,
+PostgreSQL result storage, and the model-promotion gate.
 """

@@ -246,3 +246,54 @@ PATTERN_CACHE_TTL_SECONDS: Final[int] = 30
 """Redis TTL for a cached PatternSnapshot -- same as INDICATOR_CACHE_TTL_SECONDS,
 since patterns are derived from the same OHLCV data and become stale at the same
 rate (when a new bar closes)."""
+
+# --- Backtesting Engine (M07) ---
+BACKTEST_INITIAL_CAPITAL: Final[float] = 100_000.0
+"""Default starting capital for paper-mode backtests in INR."""
+
+BACKTEST_POSITION_SIZE_PCT: Final[float] = 0.02
+"""Fraction of portfolio allocated per trade (2%) matching production M12 default."""
+
+BACKTEST_RISK_FREE_RATE_ANNUAL: Final[float] = 0.065
+"""India 10-year G-Sec benchmark rate used to annualise Sharpe/Sortino ratios."""
+
+# Slippage model — log-normal distribution parameters per time-of-day bucket.
+# mu/sigma are in log-space so E[bps] = exp(mu + sigma²/2).
+# Default values calibrated to typical NSE large-cap liquid equity fill quality;
+# replace with fit_from_fills() once M16 provides actual broker fills.
+SLIPPAGE_BUCKET_OPEN_MU: Final[float] = 2.0
+"""OPEN bucket (09:15–10:00): median ~7.4 bps — wider spreads at the open cross."""
+
+SLIPPAGE_BUCKET_OPEN_SIGMA: Final[float] = 0.5
+
+SLIPPAGE_BUCKET_MID_MU: Final[float] = 1.4
+"""MID_SESSION bucket (10:00–14:30): median ~4.1 bps — tightest intraday liquidity."""
+
+SLIPPAGE_BUCKET_MID_SIGMA: Final[float] = 0.4
+
+SLIPPAGE_BUCKET_CLOSE_MU: Final[float] = 1.8
+"""CLOSE bucket (14:30–15:10): median ~6.0 bps — spreads widen into close cross."""
+
+SLIPPAGE_BUCKET_CLOSE_SIGMA: Final[float] = 0.5
+
+SLIPPAGE_REFERENCE_SPREAD_BPS: Final[float] = 5.0
+"""Reference spread used to scale sampled slippage. A 10 bps actual spread would
+double the sampled slippage versus the default parameters."""
+
+SLIPPAGE_MIN_FIT_SAMPLES: Final[int] = 30
+"""Minimum fill observations per bucket before refitting; buckets below this threshold
+retain the default parameters (conservative floor, not silent degradation)."""
+
+# Walk-forward optimisation
+WALK_FORWARD_IN_SAMPLE_DAYS: Final[int] = 60
+"""In-sample window length for each walk-forward fold (trading days)."""
+
+WALK_FORWARD_OUT_OF_SAMPLE_DAYS: Final[int] = 20
+"""Out-of-sample evaluation window per fold (trading days)."""
+
+WALK_FORWARD_STEP_DAYS: Final[int] = 10
+"""How many trading days to advance the window between folds."""
+
+# Markout curve offsets (minutes after fill)
+MARKOUT_OFFSET_1M: Final[int] = 1
+MARKOUT_OFFSET_5M: Final[int] = 5

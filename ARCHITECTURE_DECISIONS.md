@@ -421,3 +421,63 @@ mypy --strict clean (133 files). One formatting issue found and fixed (orb.py, c
 - `TickSequenceValidator` — tick validation class
 - `all_indicators()` — returns full registry dict
 - Continuous aggregates: `ohlcv_5m`, `ohlcv_15m`, `ohlcv_1h`
+
+---
+
+### ADR-012: Backtesting Engine — design decisions (M07)
+- **Date:** 2026-07-01
+- **Module:** M07
+
+- **Decision 1: plotly pinned to 5.24.1.**
+  vectorbt 0.26.x references `heatmapgl` in plotly's layout template `Data` class, which
+  was removed in plotly 6.0. Without the pin, `import vectorbt` raises `AttributeError:
+  module 'plotly.graph_objs._figure' has no attribute 'heatmapgl'` at import time.
+  Pin: `plotly==5.24.1` in pyproject.toml (extras group `backtesting`).
+  Consequence: any future plotly upgrade requires re-testing vectorbt compatibility first.
+
+- **Decision 2: Log-normal slippage injected before vectorbt sees prices (not via built-in
+  slippage parameter).** vectorbt's built-in slippage is a fixed flat percentage applied
+  uniformly to all trades. The spec requires a log-normal distribution parameterised by
+  time-of-day bucket AND bid-ask spread width. Implementation: for each entry bar, compute
+  `adj_price[i] = close[i] * (1 + slip_bps/10000)`; for each exit bar, `adj_price[i] =
+  close[i] * (1 - slip_bps/10000)`. Pass `adj_price` as the `price=` argument to
+  `Portfolio.from_signals()`. vectorbt then executes against the adjusted price, giving
+  realistic per-trade slippage without monkey-patching the library.
+  Default NSE parameters: OPEN μ=2.0/σ=0.5 (~7.4 bps median), MID μ=1.4/σ=0.4
+  (~4.1 bps), CLOSE μ=1.8/σ=0.5 (~6.0 bps). `fit_from_fills()` refits from real M16
+  fill data once available.
+
+- **Decision 3: T+1s markout not implemented (candle-resolution limitation).**
+  The spec lists T+1s, T+1m, T+5m markout offsets. Candle-based backtesting cannot
+  resolve sub-candle timing. T+1s requires tick-level data from M16 (Data Ingestion).
+  Current implementation computes T+1m and T+5m only. This is documented as a known
+  limitation; T+1s will be added as a post-M16 enhancement.
+
+- **Decision 4: `backtest_results` stored as a regular PostgreSQL table, not a hypertable.**
+  Each backtest run produces exactly one summary row (not a time-series). Hypertables are
+  optimised for high-frequency time-ordered appends; a regular table with `run_id` as PK
+  is simpler and equally performant for the ~hundreds of rows per strategy expected here.
+  `promotion_failures` stored as JSONB (list of failure label strings) for flexible
+  querying without a separate join table.
+
+- **Decision 5: Walk-forward uses Sharpe as the sole optimisation objective.**
+  The spec does not prescribe an objective function. Sharpe is chosen because it penalises
+  both return magnitude and volatility, which aligns with RULE 6's gate criteria. A simple
+  `max(trades * win_rate)` objective would favour high-frequency strategies that may not
+  generalise. Alternatives (Calmar, Sortino) are available as metrics but not used for
+  parameter selection in walk-forward.
+
+- **Alternatives considered:**
+  - Using vectorbt's built-in `slippage` parameter: fixed percentage, not log-normal,
+    cannot vary by time-of-day or spread — rejected.
+  - Jinja2 for HTML report templates: adds a dependency with no template files to manage;
+    rejected in favour of f-string self-contained HTML.
+  - Storing full equity curves in PostgreSQL: ~252 floats per run, manageable but not
+    queried analytically — omitted from DB, available in the HTML report only.
+
+- **Consequences:** M08 (Market Regime Classifier) must be promotion-gated via the same
+  20-day paper-trading gate (`check_promotion_gate`) defined here. M16 fill data enables
+  `fit_from_fills()` to refit log-normal parameters for each instrument. The walk-forward
+  `SignalFn` type alias (`Callable[[list[OHLCVCandle], dict[str, float]], tuple[list[bool],
+  list[bool]]]`) is the contract any M11+ strategy must satisfy to participate in
+  walk-forward optimisation.
