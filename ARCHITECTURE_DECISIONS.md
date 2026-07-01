@@ -400,3 +400,24 @@ adjustment scope
   a confirming pattern. Gate 6 (S/R proximity) should pass only the last `SR_LOOKBACK_CANDLES`
   (100) bars to `detect_sr_levels` -- same default the engine already applies. The `Mapping`
   typing means callers don't need to cast their `list`-valued dicts.
+
+---
+
+## M01–M06 Validation Summary (2026-07-01)
+
+Full cross-check of M01–M06 against `MASTER_BUILD_PROMPT_FINAL.MD` run on 2026-07-01.
+Result: all modules spec-aligned, all 361 tests pass (359 + 2 skipped), ruff clean,
+mypy --strict clean (133 files). One formatting issue found and fixed (orb.py, commit 227f76c).
+
+**Verified wiring:**
+- M04 `candle_arrays_from_candles` → used by M06 `candlestick.detect_all`
+- M05 `adjusted_candles` → correct upstream for M06 (patterns must run on adjusted series)
+- M06 `PatternSnapshot` → consumed by M11 Gate 4 (CDL) and Gate 6 (S/R proximity)
+- M06 `ORBState` → consumed by M11 Gate 3 (ORB breakout confirmation)
+
+**API names for future sessions (verified in code, not just docs):**
+- `settings.is_live_trading_enabled` — live-trading guard property
+- `SQLiteFailoverBuffer` — RULE 5 DB-outage buffer
+- `TickSequenceValidator` — tick validation class
+- `all_indicators()` — returns full registry dict
+- Continuous aggregates: `ohlcv_5m`, `ohlcv_15m`, `ohlcv_1h`

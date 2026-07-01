@@ -238,10 +238,12 @@ curl http://localhost:3000/api/health              # Grafana
 docker compose -f infra/docker-compose.yml down
 ```
 
-Expected: 361 tests total -- 359 passing + 2 skipped (ASX holiday endpoint, yfinance
+Expected: 363 tests total -- 361 passing + 2 skipped (ASX holiday endpoint, yfinance
 rate-limited) when Redis/TimescaleDB are both reachable; 318 passing + 2 skipped when
 only unit tests run (no services needed). 97% coverage on `shared/` + `apps/`, ruff and
 mypy both clean (133 files), all 7 compose services reach Up/healthy.
+
+Last verified: 2026-07-01 against commit 227f76c (full M01–M06 validation pass).
 
 ## Environment variables
 

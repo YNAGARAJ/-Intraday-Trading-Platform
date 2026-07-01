@@ -111,17 +111,35 @@ every module standalone-runnable, tested, linted, and committed before the next 
 | M22 | Dashboard & API | FastAPI REST + WebSocket, Streamlit operational UI |
 | M23 | Docker & Cloud Deployment | Multi-stage Dockerfiles, AWS deploy scripts, CI/CD, Locust load tests, DR posture documented |
 
+## Current build state (updated 2026-07-01)
+
+**Last completed module:** M06 — Pattern Recognition Engine (commit `227f76c`)
+**Next module to build:** M07 — Backtesting Engine
+
+Verified clean as of this date: 361 tests (359 passing + 2 skipped), ruff clean, mypy --strict
+clean (133 files). All 6 M06 VERIFY integration tests pass against real TimescaleDB.
+
+**Known API names (use these exactly, not summary paraphrases):**
+- Config live-trading check: `settings.is_live_trading_enabled` (not `is_live_trading_active`)
+- SQLite failover buffer: `SQLiteFailoverBuffer` (not `SQLiteBuffer`)
+- Tick validation: `TickSequenceValidator` (not `validate_tick`)
+- Indicator registry: `all_indicators()` (not `get_registry()`)
+- Continuous aggregates: named `ohlcv_5m`, `ohlcv_15m`, `ohlcv_1h` (not `cagg_ohlcv_*`)
+
 ## Tech stack summary
 
-Python 3.11+, FastAPI, Pydantic Settings v2, structlog (JSON). TimescaleDB + PostgreSQL (pgvector)
-+ Redis (Lua scripts, Streams) + SQLite failover buffer. Protobuf for all inter-agent messages.
-kiteconnect (App1) / ibapi (App2) broker SDKs; yfinance for dev backfill only, never live signals.
-TA-Lib + pandas-ta + NumPy for indicators (zero LLM). scikit-learn + HMM + XGBoost + TensorFlow +
-Prophet for ML, versioned via MLflow. vectorbt for backtesting. LangGraph + LangChain for agent
-orchestration; LiteLLM for tiered model routing (Groq 8B/70B + Claude Sonnet 4.6 / Haiku 4.5);
-GPTCache for semantic dedup. Docker Compose for local/staging, GitHub Actions CI/CD, Prometheus +
-Grafana for observability, Telegram for alerting. Full version pins and rationale: see the
-`pyproject.toml` block in `MASTER_BUILD_PROMPT_FINAL.MD`.
+Python 3.12 (Docker images use `python:3.12-slim` — see ADR-004; spec says 3.11+ and 3.12
+satisfies that). FastAPI, Pydantic Settings v2, structlog (JSON). TimescaleDB + PostgreSQL
+(pgvector) + Redis (Lua scripts, Streams) + SQLite failover buffer. Protobuf for all inter-agent
+messages. kiteconnect (App1) / ibapi (App2) broker SDKs; yfinance for dev backfill only, never
+live signals. TA-Lib (prebuilt wheel 0.6.8, ADR-009) + NumPy/pandas for indicators — **pandas-ta
+is DROPPED** (numpy/pandas version conflict, ADR-009; all required indicators are covered by
+TA-Lib or hand-implemented NumPy). scikit-learn + HMM + XGBoost + TensorFlow + Prophet for ML,
+versioned via MLflow. vectorbt for backtesting. LangGraph + LangChain for agent orchestration;
+LiteLLM for tiered model routing (Groq 8B/70B + Claude Sonnet 4.6 / Haiku 4.5); GPTCache for
+semantic dedup. Docker Compose for local/staging, GitHub Actions CI/CD, Prometheus + Grafana for
+observability, Telegram for alerting. Full version pins and rationale: see the `pyproject.toml`
+block in `MASTER_BUILD_PROMPT_FINAL.MD`.
 
 ## Durable coding conventions
 
