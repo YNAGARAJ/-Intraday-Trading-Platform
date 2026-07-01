@@ -198,3 +198,51 @@ CORPORATE_ACTIONS_REFRESH_WINDOW_DAYS: Final[int] = 365
 to catch any action whose ex-date could still affect an indicator's lookback window
 (the longest is EMA_200 on 1h candles, ~8 trading days) with generous margin for
 catching up after a missed refresh."""
+
+# --- Pattern Recognition Engine (M06) ---
+ORB_OPENING_RANGE_MINUTES: Final[int] = 15
+"""Opening Range Breakout window: the first N minutes of the session form the price
+range. TA-Lib/signal literature widely uses 15 min for NSE/ASX intraday ORB. The
+GATE_7_OPENING_NOISE_FILTER_MINUTES constant (also 15 min) is the opening-noise filter
+in the signal engine -- same value, different role: one defines the ORB range formation
+window, the other gates the signal after the range is formed."""
+
+SR_LOOKBACK_CANDLES: Final[int] = 100
+"""How many bars to scan when detecting swing-high/low S/R levels. 100 bars at 5-minute
+granularity covers ~8 hours of intraday data -- enough to see multiple sessions while
+keeping S/R computation fast (< 1ms)."""
+
+SR_SWING_WINDOW: Final[int] = 5
+"""Bars on each side of a pivot required to qualify as a swing high or swing low.
+A 5-bar window on 5-minute candles corresponds to ~25 minutes each side, filtering
+noise while still capturing meaningful intraday turning points."""
+
+SR_TOUCH_TOLERANCE_PCT: Final[float] = 0.5
+"""A candle's wick (high for resistance, low for support) must land within this
+percentage of a candidate level to count as a 'touch'. 0.5% matches typical
+institutional order clustering observed in NSE/ASX Level 2 data."""
+
+SR_MIN_TOUCHES: Final[int] = 2
+"""Minimum number of touch events for a price level to be reported as S/R. A level
+touched only once is a single-bar spike; two independent approaches raise confidence
+that it represents real order flow at that price."""
+
+SR_CLUSTER_TOLERANCE_PCT: Final[float] = 0.3
+"""Swing highs/lows within this percentage of each other are merged into one level.
+0.3% at typical NSE prices (e.g. ₹1000) = ₹3 -- tighter than SR_TOUCH_TOLERANCE_PCT
+to avoid prematurely collapsing distinct levels before touches are counted."""
+
+VOLUME_PROFILE_BUCKETS: Final[int] = 50
+"""Number of equal-width price buckets for the volume-at-price S/R computation. 50
+buckets over a typical 1-2% intraday range puts each bucket at ~0.03%, narrower than
+SR_CLUSTER_TOLERANCE_PCT, giving adequate resolution without noise amplification."""
+
+CDL_MIN_CANDLES: Final[int] = 10
+"""Minimum candles required before running TA-Lib CDL pattern functions. The most
+complex TA-Lib candlestick function (CDLABANDONEDBABY) has a lookback of ~9 bars;
+10 is a safe floor that covers all current CDL functions with one bar of margin."""
+
+PATTERN_CACHE_TTL_SECONDS: Final[int] = 30
+"""Redis TTL for a cached PatternSnapshot -- same as INDICATOR_CACHE_TTL_SECONDS,
+since patterns are derived from the same OHLCV data and become stale at the same
+rate (when a new bar closes)."""

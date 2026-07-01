@@ -349,3 +349,54 @@ adjustment scope
   future module needing dividend-adjusted (total-return) series or symbol-change history
   stitching must extend `shared/instruments/adjustment.py` rather than assume it's already
   handled.
+
+---
+
+### ADR-011: Pattern Recognition Engine -- design decisions (M06)
+- **Date:** 2026-07-01
+- **Module:** M06
+- **Context:** Four non-obvious decisions arose during M06's build that downstream modules
+  (M07 backtester, M11 signal engine) need to know about.
+- **Decision:**
+
+  1. **CDL function discovery via `dir(talib)` at import time.** Rather than maintaining a
+     hardcoded list of ~61 CDL* function names, `shared/patterns/candlestick.py` scans
+     `dir(talib)` for names starting with `CDL` once at import. This means a TA-Lib upgrade
+     that adds new candlestick functions is automatically picked up without a code change.
+     Normalisation: TA-Lib returns ±200 for some functions (e.g. CDLABANDONEDBABY with
+     penetration); these are normalised to ±100 so every caller sees a simple signed direction.
+
+  2. **ORB `session_open` clamps lower bound.** When `session_open` is explicitly provided,
+     the ORB range is computed only from candles with `session_open <= time <= session_open +
+     N_minutes`. Without the lower-bound clamp, candles from before the explicit session open
+     (e.g. pre-market or prior-session bars in the same calendar date) would contaminate the
+     range. Found via a failing unit test; fixed in the same PR. When `session_open` is None,
+     the earliest candle on the last date's session is inferred as the open.
+
+  3. **S/R clustering before touch counting.** Swing pivots and volume-profile peaks are
+     clustered first (nearby candidates within `SR_CLUSTER_TOLERANCE_PCT` = 0.3% merged), then
+     touches are counted against the clustered representative prices. The alternative -- counting
+     touches per raw pivot then merging -- risks double-counting when two pivots within the
+     cluster tolerance each get the same touches. Clustering first gives a single canonical
+     price per zone.
+
+  4. **`compute_multi_timeframe` accepts `Mapping[str, Sequence[OHLCVCandle]]` not `dict`.** The
+     parameter type is `Mapping` (covariant in value type) rather than `dict` so callers can
+     pass `dict[str, list[OHLCVCandle]]` without mypy errors. `dict[str, Sequence[...]]` is
+     invariant and would require the caller to have the exact type annotation -- a poor API
+     contract for a utility function. This mirrors the Python stdlib's own pattern (e.g.
+     `json.loads` accepting `Mapping` not `dict`).
+
+- **Alternatives considered:**
+  - Hardcoded CDL name list: fragile to TA-Lib version bumps; rejected.
+  - Inferring ORB from candle density rather than explicit time boundary: ambiguous around
+    partial candles; rejected in favour of the explicit session_open parameter.
+  - Volume-weighted S/R strength (multiply touch count by accumulated volume at the level):
+    would add accuracy but requires normalising volumes across very different price instruments;
+    deferred to a future enhancement, current strength is touch-count-only normalised to 0–1.
+
+- **Consequences:** M11 (signal engine) Gate 4 should call `detect_recent(candles,
+  lookback_bars=3)` (not `detect_all`) to efficiently check whether the most recent bars carry
+  a confirming pattern. Gate 6 (S/R proximity) should pass only the last `SR_LOOKBACK_CANDLES`
+  (100) bars to `detect_sr_levels` -- same default the engine already applies. The `Mapping`
+  typing means callers don't need to cast their `list`-valued dicts.

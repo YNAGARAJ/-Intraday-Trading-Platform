@@ -1,0 +1,39 @@
+"""Fixtures for M06's integration tests -- needs a real TimescaleDB.
+
+Mirrors tests/integration/instruments/conftest.py: one pg_connection fixture that
+skips if TimescaleDB isn't reachable, and an autouse _clean_state that truncates
+ohlcv_1m before and after each test so tests don't interfere with each other.
+"""
+
+from collections.abc import Iterator
+
+import psycopg2
+import pytest
+from psycopg2.extensions import connection as PGConnection  # noqa: N812
+
+from shared.storage.connection import apply_schema
+
+TEST_DSN = "postgresql://trading:trading@localhost:5433/trading_ts"
+
+
+@pytest.fixture(scope="session")
+def pg_connection() -> Iterator[PGConnection]:
+    try:
+        conn = psycopg2.connect(TEST_DSN)
+    except psycopg2.OperationalError:
+        pytest.skip(f"No TimescaleDB reachable at {TEST_DSN} -- start one to run these")
+    apply_schema(conn)
+    yield conn
+    conn.close()
+
+
+@pytest.fixture(autouse=True)
+def _clean_state(pg_connection: PGConnection) -> Iterator[None]:
+    def _truncate() -> None:
+        with pg_connection.cursor() as cur:
+            cur.execute("TRUNCATE ticks, ohlcv_1m")
+        pg_connection.commit()
+
+    _truncate()
+    yield
+    _truncate()

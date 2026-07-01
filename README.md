@@ -10,7 +10,7 @@ build status.
 `TRADING_MODE=PAPER` is the default everywhere. `TRADING_MODE=LIVE` is never a default
 and must be set explicitly alongside `LIVE_TRADING_CONFIRMED=true`.
 
-## Current state: M05 -- Instrument Master & Corporate Actions
+## Current state: M06 -- Pattern Recognition Engine
 
 What exists so far:
 
@@ -46,6 +46,13 @@ What exists so far:
   downstream modules (M04/M06/M07/M08) call instead of reading raw OHLCV directly, so
   indicators/patterns/backtests/regime classification don't silently corrupt around
   ex-dates.
+- **M06:** the pattern recognition engine (`shared/patterns/`) -- full TA-Lib candlestick
+  pattern scan (~61 CDL* functions discovered dynamically via `dir(talib)` so future
+  TA-Lib upgrades are auto-included), Opening Range Breakout (ORB) detection (first 15-minute
+  range → bullish/bearish breakout), and S/R level detection via swing-pivot analysis and
+  volume-at-price profiling. Multi-timeframe cross-validation (`compute_multi_timeframe`)
+  identifies CDL patterns confirmed on ≥ 2 distinct timeframes (Gate 5 of the 9-gate signal
+  system). All three detectors are pure Python/NumPy/TA-Lib -- zero LLM (RULE 4).
 
 No trading/signal logic exists yet -- that starts at M11.
 
@@ -142,6 +149,27 @@ backfill CLI. See `tests/integration/indicators/test_indicators_live.py` for the
 literal M04 VERIFY command proof (synthetic data, since yfinance is rate-limited here
 -- same caveat as M03).
 
+## Running the pattern recognition CLI
+
+```bash
+source .venv/bin/activate
+docker run --rm -d --name trading-test-timescale -p 5433:5432 \
+    -e POSTGRES_USER=trading -e POSTGRES_PASSWORD=trading \
+    -e POSTGRES_DB=trading_ts timescale/timescaledb:2.14.0-pg16
+python -m shared.patterns --symbol RELIANCE --exchange NSE --timeframe 5m
+# Multi-timeframe cross-confirmation:
+python -m shared.patterns --symbol RELIANCE --exchange NSE --timeframes 1m,5m,15m
+```
+
+Queries the last `SR_LOOKBACK_CANDLES` (100) candles per timeframe from TimescaleDB, runs
+all three detectors (CDL scan, ORB, S/R), and logs the pattern snapshot. If no candles
+have been backfilled yet it reports `no_candles_found` and exits cleanly. The multi-TF mode
+additionally reports `confirmed_bullish_patterns` / `confirmed_bearish_patterns` -- CDL names
+detected on ≥ 2 of the requested timeframes. See
+`tests/integration/patterns/test_patterns_live.py` for the literal M06 VERIFY proof:
+deterministic ORB, S/R, and CDLENGULFING assertions against real TimescaleDB with synthetic
+candles whose outcomes are precisely known.
+
 ## Running the instrument master CLI
 
 ```bash
@@ -198,7 +226,10 @@ python -m shared.indicators --symbol RELIANCE.NS --exchange NSE --timeframe 5m
 # 9. Instrument master CLI (M05 VERIFY command -- requires TimescaleDB from step 5)
 python -m shared.instruments --symbol RELIANCE --exchange NSE
 
-# 10. Full stack
+# 10. Pattern recognition CLI (M06 VERIFY command -- requires TimescaleDB from step 5)
+python -m shared.patterns --symbol RELIANCE --exchange NSE --timeframe 5m
+
+# 11. Full stack
 docker build -f infra/docker/Dockerfile.base -t trading-system-base:dev .
 docker compose -f infra/docker-compose.yml up -d --build
 docker compose -f infra/docker-compose.yml ps     # all should be Up/healthy
@@ -207,11 +238,10 @@ curl http://localhost:3000/api/health              # Grafana
 docker compose -f infra/docker-compose.yml down
 ```
 
-Expected: 299 tests total -- 297 passing + 2 skipped (ASX holiday endpoint, yfinance
-rate-limited) when Redis/TimescaleDB are both reachable; fewer passing + more skipped
-otherwise (everything needing those services, or live NSE/ASX network access, skips
-cleanly rather than failing). 98% coverage on `shared/` + `apps/`, ruff and mypy both
-clean, all 7 compose services reach Up/healthy.
+Expected: 361 tests total -- 359 passing + 2 skipped (ASX holiday endpoint, yfinance
+rate-limited) when Redis/TimescaleDB are both reachable; 318 passing + 2 skipped when
+only unit tests run (no services needed). 97% coverage on `shared/` + `apps/`, ruff and
+mypy both clean (133 files), all 7 compose services reach Up/healthy.
 
 ## Environment variables
 
@@ -219,7 +249,7 @@ See [`.env.example`](.env.example) at the repo root for the full list, grouped b
 module that owns each variable. Only the M01 section
 (`APP_ID`/`ENVIRONMENT`/`LOG_LEVEL`/`TRADING_MODE`/`LIVE_TRADING_CONFIRMED`/`REDIS_URL`/
 `POSTGRES_DSN`/`TIMESCALE_DSN`) is actually read by code today; the rest documents
-future modules' variables for discoverability. M02-M05 introduced no new env vars.
+future modules' variables for discoverability. M02-M06 introduced no new env vars.
 
 ## Known follow-ups (tracked in PROGRESS.md / ARCHITECTURE_DECISIONS.md)
 
@@ -255,3 +285,10 @@ future modules' variables for discoverability. M02-M05 introduced no new env var
   a correct dividend (total-return) adjustment needs point-in-time price data this
   function deliberately doesn't fetch; symbol-change history-stitching has no
   downstream consumer yet. See ADR-010.
+- S/R strength is touch-count based (normalised 0–1), not volume-weighted. A future
+  enhancement could multiply touch count by accumulated volume at the level for richer
+  zone significance, but this requires per-instrument volume normalisation to compare
+  across symbols; deferred until M11 (signal engine) proves it's needed for Gate 6.
+- `Volume Delta` in M04 and `CDL` scan in M06 both benefit from tick-level aggressor-side
+  data (bid/ask and trade direction), which M16 (data ingestion) will provide. Both modules
+  degrade gracefully on OHLCV-only data today.
