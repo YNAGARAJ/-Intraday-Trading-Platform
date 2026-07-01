@@ -297,3 +297,54 @@ WALK_FORWARD_STEP_DAYS: Final[int] = 10
 # Markout curve offsets (minutes after fill)
 MARKOUT_OFFSET_1M: Final[int] = 1
 MARKOUT_OFFSET_5M: Final[int] = 5
+
+# --- Market Regime Classifier (M08) ---
+REGIME_ADX_TREND_THRESHOLD: Final[float] = 25.0
+"""ADX above this value indicates a trending regime (BULL or BEAR)."""
+
+REGIME_ADX_MEAN_REVERT_THRESHOLD: Final[float] = 20.0
+"""ADX below this value indicates a mean-reverting regime."""
+
+REGIME_VIX_CHAOS_THRESHOLD: Final[float] = 25.0
+"""VIX above this value is a HIGH_VOL_CHAOS signal (RULE 2 hard halt)."""
+
+REGIME_RSI_MEAN_REVERT_LOW: Final[float] = 40.0
+"""RSI lower bound for MEAN_REVERTING confirmation (40–60 band)."""
+
+REGIME_RSI_MEAN_REVERT_HIGH: Final[float] = 60.0
+"""RSI upper bound for MEAN_REVERTING confirmation."""
+
+REGIME_ATR_SPIKE_MULTIPLIER: Final[float] = 2.0
+"""ATR spike threshold: current ATR > this multiple of rolling mean → chaos signal."""
+
+REGIME_RF_N_ESTIMATORS: Final[int] = 100
+"""Number of trees in the Random Forest classifier."""
+
+REGIME_RF_MAX_DEPTH: Final[int] = 6
+"""Max tree depth — shallow enough to prevent overfitting on limited intraday
+history."""
+
+REGIME_HMM_N_COMPONENTS: Final[int] = 4
+"""Number of HMM hidden states (one per regime)."""
+
+REGIME_CONFIDENCE_THRESHOLD: Final[float] = 0.60
+"""Minimum RF confidence to publish a RegimeChanged event; below this the prior
+regime is retained to avoid noisy state flips on ambiguous market conditions."""
+
+REGIME_UPDATE_INTERVAL_MINUTES: Final[int] = 5
+"""Re-classify market regime every N minutes during the trading session."""
+
+REGIME_REDIS_STREAM: Final[str] = "regime:changes"
+"""Redis Stream key for RegimeChanged protobuf messages."""
+
+REGIME_MLFLOW_EXPERIMENT: Final[str] = "market_regime_classifier"
+"""MLflow experiment name for RF + HMM model versioning."""
+
+REGIME_MIN_TRAINING_SAMPLES: Final[int] = 500
+"""Minimum labelled candle bars required before fitting the RF model."""
+
+REGIME_FEATURE_LOOKBACK: Final[int] = 50
+"""Candle lookback window for feature computation (covers ATR/BB warmup)."""
+
+REGIME_ATR_SPIKE_LOOKBACK: Final[int] = 20
+"""Rolling window (bars) used to compute the mean ATR for the spike detector."""

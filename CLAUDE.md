@@ -113,11 +113,11 @@ every module standalone-runnable, tested, linted, and committed before the next 
 
 ## Current build state (updated 2026-07-01)
 
-**Last completed module:** M07 — Backtesting Engine
-**Next module to build:** M08 — Market Regime Classifier
+**Last completed module:** M08 — Market Regime Classifier
+**Next module to build:** M09 — Stock Universe Filter
 
-Verified clean as of this date: 403 tests passing (52 skipped: integration tests requiring live
-TimescaleDB/Redis), ruff clean, mypy --strict clean (155 files). 81 new M07 unit tests all pass.
+Verified clean as of this date: 488 tests passing (58 skipped: integration tests requiring live
+TimescaleDB/Redis), ruff clean, mypy --strict clean (97 files). 85 new M08 unit tests all pass.
 
 **Known API names (use these exactly, not summary paraphrases):**
 - Config live-trading check: `settings.is_live_trading_enabled` (not `is_live_trading_active`)
@@ -130,6 +130,12 @@ TimescaleDB/Redis), ruff clean, mypy --strict clean (155 files). 81 new M07 unit
 - Promotion gate: `check_promotion_gate(metrics)` → list of failure strings (empty = pass)
 - EMA strategy: `ema_crossover_signals(candles)`, `run_backtest(config, candles, entries, exits)`
 - Walk-forward: `run_walk_forward(config, candles, signal_fn, param_grid)`
+- Regime classifier: `RegimeClassifier.fit(x_train, y)`, `.classify(features)` → `RegimeClassification`
+- Feature extraction: `extract_features(candles, vix)` → `RegimeFeatures` — `shared/regime/features.py`
+- Regime publisher: `publish_regime_change(classification, redis_client)` → entry_id str
+- MLflow registry: `save_classifier(clf, metrics)`, `load_classifier(run_id)`, `promote_classifier(run_id, metrics)`
+- Regime enum: `MarketRegime` — BULL_TREND, BEAR_TREND, MEAN_REVERTING, HIGH_VOL_CHAOS
+- Redis stream key: `REGIME_REDIS_STREAM = "regime:changes"` — `RegimeChanged` proto payload
 
 ## Tech stack summary
 
