@@ -647,3 +647,42 @@ mypy --strict clean (133 files). One formatting issue found and fixed (orb.py, c
   time, not the one captured at configure-time.
 - **Consequences:** Negligible (microseconds per log call, not on the RULE 4 hot path).
   All 591 unit tests pass after the fix.
+
+---
+
+### ADR-016: M10 GPTCache integration — embedding-only, Redis list storage
+- **Date:** 2026-07-01
+- **Module:** M10
+- **Context:** Spec requires GPTCache semantic dedup (cosine similarity > 0.95 → return
+  cached score, namespaced by model version). The canonical `gptcache` integration pattern
+  wraps the LLM adapter directly, requiring complex initialization and a FAISS vector store.
+  The project's Redis-first posture and strict mypy requirements made the full adapter
+  approach impractical.
+- **Decision:** Use only `gptcache.embedding.Onnx` (all-MiniLM-L6-v2, 384-dim) for
+  embedding generation. Store embeddings as JSON lists in a Redis list key
+  (`sentiment:cache:<model_version>`). Cosine similarity computed in NumPy at query time
+  by scanning all stored entries. No FAISS index; no gptcache LLM adapter.
+- **Alternatives considered:**
+  - Full gptcache LLM adapter: requires `CacheConfig`, `init_similar_cache`, and a vector
+    store. Adds 200+ lines of setup code that would need mocking in tests. Not worth the
+    complexity for M10's scale (≤100 headlines/run, ≤2 runs/day).
+  - FAISS index: would improve lookup from O(n) linear scan to O(log n), but with n ≤ 100
+    the linear scan completes in microseconds. FAISS is not in the dep list and adding it
+    would violate RULE 9 (no out-of-scope dependencies).
+- **Consequences:** Lookup is O(n) linear scan. Acceptable for ≤100 headlines/run. If M10
+  is extended to thousands of headlines, migrate to FAISS or Redis vector store.
+
+### ADR-017: litellm moved to module-level import in scorer.py
+- **Date:** 2026-07-01
+- **Module:** M10
+- **Context:** `litellm` was initially imported inside `_call_llm()` (deferred) to avoid
+  a slow import when only the cache path runs. However, `@patch("shared.sentiment.scorer.litellm")`
+  in unit tests requires `litellm` to be a module-level name in `scorer.py`.
+- **Decision:** Move `import litellm` to module level. The mypy config adds a
+  `[[tool.mypy.overrides]]` block with `follow_imports = "skip"` for `litellm` and
+  `litellm.*` to work around a known mypy internal `AssertionError` triggered by
+  litellm's inline stubs (`Cannot find module for multiprocessing.context.DefaultContext`).
+- **Alternatives considered:** Keep deferred import and use `patch.dict("sys.modules", ...)` 
+  in tests — more boilerplate and less idiomatic.
+- **Consequences:** litellm is always imported at module import time, adding ~0.3s to cold
+  starts. This is acceptable for a pre-market agent (not on the RULE 4 hot path).

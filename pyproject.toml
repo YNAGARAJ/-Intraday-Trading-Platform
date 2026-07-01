@@ -47,7 +47,9 @@ gptcache = "0.1.43"                 # Semantic dedup cache for sentiment scoring
 # --- Broker / auth (M14-M16; not used until those modules) ---
 pyotp = "2.9.0"                     # Kite TOTP auto-login (M15)
 requests = "2.31.0"                 # NSE/ASX holiday calendar fetch (M02); Kite REST
-                                     # session flow, RSS scraping (later modules)
+                                     # session flow, NSE/ASX market indicator scraping (M10)
+feedparser = "6.0.11"               # RSS feed parsing for Economic Times, Moneycontrol,
+                                     # NSE and ASX announcement feeds (M10)
 
 # --- Market data / indicators (M03-M06) ---
 yfinance = "0.2.37"                 # Dev historical backfill only; NEVER used for live entry signals
@@ -86,7 +88,11 @@ types-PyYAML = "6.0.12.20240311"    # mypy stubs for pyyaml (config.yaml loading
 [tool.ruff]
 line-length = 88
 target-version = "py311"
-exclude = ["shared/proto/messages_pb2.py", "shared/proto/messages_pb2.pyi"]  # generated code
+exclude = [
+    "shared/proto/messages_pb2.py",
+    "shared/proto/messages_pb2.pyi",  # generated code
+    "*.md",                            # Markdown — no line-length enforcement
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "B", "I", "N"]
@@ -99,6 +105,14 @@ ignore_missing_imports = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 exclude = ["shared/proto/messages_pb2.py", "shared/proto/messages_pb2.pyi"]
+
+[[tool.mypy.overrides]]
+# litellm ships inline stubs that trigger a mypy internal AssertionError
+# (Cannot find module for multiprocessing.context.DefaultContext) in mypy
+# 1.x. Skipping follow_imports avoids the crash while keeping our own code
+# fully type-checked.
+module = ["litellm", "litellm.*"]
+follow_imports = "skip"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

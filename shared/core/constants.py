@@ -427,3 +427,38 @@ STRATEGY_ID_COMPRESSED: Final[dict[str, str]] = {
 
 # Threshold above which trend_score triggers EMA_VWAP_TREND assignment.
 STRATEGY_TREND_SCORE_THRESHOLD: Final[float] = 0.6
+
+# --- Sentiment & News Agent (M10) ---
+SENTIMENT_CACHE_REDIS_TTL_SECONDS: Final[int] = 86_400
+"""Semantic dedup cache TTL: 24h. Intraday macro themes repeat; a daily reset ensures
+yesterday's cached scores do not pollute today's aggregate (spec §cost-controls)."""
+
+SENTIMENT_MAX_FEED_AGE_HOURS: Final[int] = 24
+"""Discard RSS/announcement headlines older than this. Stale headlines would skew
+the aggregate score and count toward the per-run cap unnecessarily."""
+
+SENTIMENT_MAX_HEADLINES_PER_RUN: Final[int] = 100
+"""Hard cap on total headlines scored per SentimentAgent.run() call. Prevents a
+single noisy feed from flooding the batch queue and breaching the $1/day budget."""
+
+SENTIMENT_GROQ_COST_PER_1M_INPUT_USD: Final[float] = 0.05
+"""Groq Llama 3.1-8B input token cost (USD / 1M tokens). Spec: Tier 1 = $0.05/1M."""
+
+SENTIMENT_GROQ_COST_PER_1M_OUTPUT_USD: Final[float] = 0.08
+"""Groq Llama 3.1-8B output token cost (USD / 1M tokens). Higher than input per
+Groq's published pricing; spec cited a blended ~$0.05/1M for rough budgeting."""
+
+SENTIMENT_EMBEDDING_DIM: Final[int] = 384
+"""Embedding dimension for all-MiniLM-L6-v2 (gptcache.embedding.Onnx).
+Used to validate deserialized embedding shapes from Redis."""
+
+SENTIMENT_COST_REDIS_KEY_PREFIX: Final[str] = "sentiment:cost:daily"
+"""Redis key prefix for daily LLM cost tracking: `sentiment:cost:daily:<YYYYMMDD>`."""
+
+SENTIMENT_CACHE_REDIS_KEY_PREFIX: Final[str] = "sentiment:cache"
+"""Redis key prefix for semantic dedup cache: `sentiment:cache:<model_version>`."""
+
+SENTIMENT_DEFAULT_MODEL: Final[str] = "groq/llama-3.1-8b-instant"
+"""Default LiteLLM model string for headline scoring (Tier 1 Groq 8B).
+Switched to a more capable model only when ``COMPLEX_MODEL_MAX_CALLS_PER_DAY``
+budget permits — see RULE 4 (hot path is zero LLM)."""

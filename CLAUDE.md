@@ -113,11 +113,11 @@ every module standalone-runnable, tested, linted, and committed before the next 
 
 ## Current build state (updated 2026-07-01)
 
-**Last completed module:** M09 — Stock Universe Filter
-**Next module to build:** M10 — Sentiment & News Agent
+**Last completed module:** M10 — Sentiment & News Agent
+**Next module to build:** M11 — Signal Generation Agent
 
-Verified clean as of this date: 591 unit tests passing (58 skipped: integration tests requiring
-live TimescaleDB/Redis), ruff clean, mypy --strict clean. ~107 new M09 unit tests all pass.
+Verified clean as of this date: 742 unit tests passing (58 skipped: integration tests requiring
+live TimescaleDB/Redis), ruff clean, mypy --strict clean. 151 new M10 unit tests all pass.
 
 **M01–M08 independent audit completed 2026-07-01** (commit 1c55be6). All findings resolved:
 - `promote_classifier(backtest_metrics: BacktestMetrics)` — `Any` removed (was S2)
@@ -130,8 +130,14 @@ live TimescaleDB/Redis), ruff clean, mypy --strict clean. ~107 new M09 unit test
 **M09 notes:**
 - `structlog.PrintLoggerFactory(file=sys.stdout)` → `PrintLoggerFactory()` in
   `shared/core/logging.py` — fixes capsys/stdout closed-file crash (ADR-015).
-- SentScore = 0.0 until M10 delivers sentiment feed; β_Sent weight (0.10) reserved.
 - Compliance source fails-open (empty exclusion set) if NSE API unreachable.
+
+**M10 notes:**
+- SentScore now live — `MarketSentiment.aggregate_score` feeds M11 Gate 8.
+- GPTCache: embedding-only path (gptcache.Onnx + NumPy cosine + Redis list) — ADR-016.
+- litellm at module level; mypy `follow_imports = "skip"` for litellm — ADR-017.
+- India VIX + FII/DII scrapers fail-open (return None on network failure).
+- `*.md` excluded from ruff E501 (pre-existing across M01-M09, not M10-specific).
 
 **Known API names (use these exactly, not summary paraphrases):**
 - Config live-trading check: `settings.is_live_trading_enabled` (not `is_live_trading_active`)
@@ -160,6 +166,16 @@ live TimescaleDB/Redis), ruff clean, mypy --strict clean. ~107 new M09 unit test
 - Universe schema: `apply_universe_schema(conn)` — `watchlist_history` hypertable
 - Compliance: `NSEComplianceSource().fetch()` → `ComplianceExclusionList`
 - Redis watchlist key: `universe:watchlist:<EXCHANGE>` — 8-hour TTL
+- Sentiment agent: `SentimentAgent(model, api_key, redis_client, embedding_model).run(exchange, custom_headlines)` → `MarketSentiment`
+- Sentiment models: `Headline`, `SentimentScore`, `FIIDIIData`, `VIXData`, `MarketSentiment` — `shared/sentiment/models.py`
+- Sentiment scorer: `score_headlines_batch(headlines, model, api_key)` → `(list[SentimentScore], int)` — `shared/sentiment/scorer.py`
+- Sentiment cache: `SentimentCache(redis_client, model_version, embedding_model)` — `.get(text)`, `.put(text, score)` — `shared/sentiment/cache.py`
+- Sentiment feeds: `fetch_all_feeds(exchange, max_age_hours)` → `list[Headline]` — `shared/sentiment/feeds.py`
+- Market indicators: `fetch_india_vix()` → `VIXData | None`, `fetch_fii_dii()` → `FIIDIIData | None` — `shared/sentiment/market_indicators.py`
+- Sentiment cost: `CostTracker(redis_client).record(model, input_tokens, output_tokens)` — `shared/sentiment/cost_tracker.py`
+- Sentiment cache key: `sentiment:cache:<model_version>` — 24-hour TTL
+- Sentiment cost key: `sentiment:cost:daily:<YYYYMMDD>`
+- Default sentiment model: `SENTIMENT_DEFAULT_MODEL = "groq/llama-3.1-8b-instant"` — `shared/core/constants.py`
 
 ## Tech stack summary
 
