@@ -231,10 +231,22 @@ ACT_R_DECAY_PARAM: Final[float] = 0.5
 LLM_COMPLEX_DAILY_COUNTER_KEY: Final[str] = "orchestrator:llm:complex:{date}"
 """Redis counter key for Claude Sonnet (complex model) calls; resets daily."""
 
-# --- Agent health (M19) ---
+# --- Agent health & Real-Time Monitor (M19) ---
 HEARTBEAT_INTERVAL_SECONDS: Final[int] = 30
+"""Agents must write a heartbeat at least once per this interval (seconds)."""
+
 MAX_MISSED_HEARTBEATS_BEFORE_KILL: Final[int] = 2
 """Tier 3 kill switch trigger: consecutive missed heartbeats from a monitored agent."""
+
+MONITOR_POLL_INTERVAL_SECONDS: Final[int] = 30
+"""MonitorAgent polling cadence in seconds (same as heartbeat interval)."""
+
+MONITOR_HEARTBEAT_REDIS_KEY_PREFIX: Final[str] = "monitor:heartbeat"
+"""Redis key prefix for per-agent heartbeat timestamps.
+Key format: ``monitor:heartbeat:<agent_name>``."""
+
+PROMETHEUS_METRICS_PORT: Final[int] = 8000
+"""Default HTTP port for the Prometheus /metrics endpoint."""
 
 # --- LLM cost optimisation ---
 SENTIMENT_BATCH_MAX_HEADLINES: Final[int] = 20

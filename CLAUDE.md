@@ -113,10 +113,10 @@ every module standalone-runnable, tested, linted, and committed before the next 
 
 ## Current build state (updated 2026-07-02)
 
-**Last completed module:** M18 — Agent Orchestrator (LangGraph)
-**Next module to build:** M19 — Real-Time Monitor Agent
+**Last completed module:** M19 — Real-Time Monitor Agent
+**Next module to build:** M20 — Alerting & Notification
 
-Verified clean as of this date: 1509 unit tests passing (111 new M18 tests), ruff clean,
+Verified clean as of this date: 1579 unit tests passing (70 new M19 tests), ruff clean,
 mypy --strict clean. 20/20 VERIFY scenarios pass.
 
 **M01–M08 independent audit completed 2026-07-01** (commit 1c55be6). All findings resolved:
@@ -297,6 +297,23 @@ mypy --strict clean. 20/20 VERIFY scenarios pass.
 - STM Redis prefix: `SHORT_TERM_MEMORY_REDIS_KEY_PREFIX = "orchestrator:stm"`
 - ACT-R decay param: `ACT_R_DECAY_PARAM = 0.5` — `shared/core/constants.py`
 - mypy override: `langgraph`, `langgraph.*`, `langchain`, `langchain.*` → `follow_imports = "skip"` (incomplete stubs, same as litellm)
+
+**M19 API names:**
+- Monitor agent: `MonitorAgent(pnl_tracker, heartbeat_checker, metrics, poll_interval_seconds)` — `shared/monitor/agent.py`
+- Heartbeat checker: `HeartbeatChecker(redis_client, kill_switch, interval_seconds, max_misses)` — `shared/monitor/heartbeat.py`
+- Heartbeat methods: `.add_watched_agent(name)`, `.register_heartbeat(name, now_ms)`, `.check_all(now_ms)` → `dict[str, AgentHealth]`
+- P&L tracker: `PnLTracker(redis_client, starting_capital).snapshot()` → `PnLSnapshot` — `shared/monitor/pnl_tracker.py`
+- P&L reads: `.read_system_halted()` → `bool`, `.read_orchestrator_state()` → `dict`, `.read_reconciliation_mismatches()` → `int`
+- Prometheus metrics: `PrometheusMetrics(registry=CollectorRegistry()).update(snapshot)` — `shared/monitor/metrics.py`
+- Metrics HTTP: `.start_http_server(port=8000)`
+- Monitor agent methods: `.register_heartbeat(name, now_ms)`, `.poll_once(now_ms)` → `MonitorSnapshot`, `.start()`, `.stop()`, `.is_running()` → `bool`, `.get_last_snapshot()` → `MonitorSnapshot | None`
+- Models: `HeartbeatRecord`, `AgentHealth`, `PnLSnapshot`, `MonitorSnapshot` — `shared/monitor/models.py`
+- Kill switch Protocol: `_KillSwitchTrigger.trigger_tier3(reason)` — inject `KillSwitchManager` instance from M13
+- Heartbeat Redis key: `monitor:heartbeat:<agent_name>` — `MONITOR_HEARTBEAT_REDIS_KEY_PREFIX = "monitor:heartbeat"`
+- P&L Redis key: `RISK_DAILY_PNL_REDIS_KEY = "risk:daily:pnl:{date}"` — read by M19 from M12
+- Tier 3 trigger threshold: `MAX_MISSED_HEARTBEATS_BEFORE_KILL = 2` consecutive misses
+- Prometheus port: `PROMETHEUS_METRICS_PORT = 8000`
+- Grafana dashboard: `shared/monitor/grafana_dashboard.json` — import via Grafana → Dashboards → Import
 
 ## Tech stack summary
 
