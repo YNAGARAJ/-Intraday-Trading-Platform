@@ -113,10 +113,10 @@ every module standalone-runnable, tested, linted, and committed before the next 
 
 ## Current build state (updated 2026-07-02)
 
-**Last completed module:** M15 — Authentication & Token Manager
-**Next module to build:** M16 — Data Ingestion Agent
+**Last completed module:** M17 — Reconciliation Agent
+**Next module to build:** M18 — Agent Orchestrator (LangGraph)
 
-Verified clean as of this date: 1271 unit tests passing (65 new M15 tests), ruff clean,
+Verified clean as of this date: 1398 unit tests passing (65 new M17 tests), ruff clean,
 mypy --strict clean. 20/20 VERIFY scenarios pass.
 
 **M01–M08 independent audit completed 2026-07-01** (commit 1c55be6). All findings resolved:
@@ -251,6 +251,30 @@ mypy --strict clean. 20/20 VERIFY scenarios pass.
 - IBKR ports: `IBKR_PAPER_PORT=7497`, `IBKR_LIVE_PORT=7496` — env-controlled via `TRADING_MODE`
 - Pool max: `IBKR_CLIENT_ID_POOL_MAX=8` — `pool_size > MAX` raises `ValueError`
 - Paper mode: `AuthMode.PAPER` returns `PAPER_TOKEN_SIMULATED` without real HTTP calls
+
+**M16 API names:**
+- Ingestion agent: `DataIngestionAgent(ws, redis_client, yf_fallback, intervals).start/stop()` — `shared/ingestion/agent.py`
+- Tick validator: `TickSequenceValidator().validate(tick)` raises `TickValidationError` — `shared/ingestion/validator.py`
+- Candle aggregator: `CandleAggregator(interval_seconds).ingest(tick)` → `OHLCVCandle | None` — `shared/ingestion/aggregator.py`
+- Tick buffer: `TickBuffer(redis_client).push(tick)`, `.drain(n)`, `.should_flush()` — `shared/ingestion/buffer.py`
+- yfinance fallback: `YFinanceFallback().fetch_ticks(symbol, exchange)` → `list[RawTick]` — `shared/ingestion/yfinance_fallback.py`
+- Ingestion models: `RawTick`, `OHLCVCandle`, `IngestionStatus`, `TickValidationError` — `shared/ingestion/models.py`
+- Degraded key: `INGESTION_DEGRADED_REDIS_KEY = "system:status:degraded"` — set on WS timeout, cleared on reconnect
+- Candle intervals: `CANDLE_INTERVAL_1M=60`, `CANDLE_INTERVAL_5M=300` — `shared/core/constants.py`
+
+**M17 API names:**
+- Reconciliation agent: `ReconciliationAgent(broker_state, internal_state, publisher, block_registry, interval_seconds, on_mismatch)` — `shared/reconciliation/agent.py`
+- Broker protocol: `BrokerStateProvider` — `.get_positions()`, `.get_open_orders()` — `shared/reconciliation/agent.py`
+- Internal protocol: `InternalStateProvider` — `.get_positions()`, `.get_open_orders()` — `shared/reconciliation/agent.py`
+- Diff functions: `diff_positions(broker, internal, now_ms)`, `diff_orders(broker, internal, now_ms)` → `list[ReconciliationMismatch]` — `shared/reconciliation/differ.py`
+- Publisher: `MismatchPublisher(redis_client, stream_key, stream_maxlen).publish(mismatch)` → `str | None` — `shared/reconciliation/publisher.py`
+- Block registry: `BlockRegistry(redis_client, block_ttl_seconds).block/clear/is_blocked(symbol, exchange)` — `shared/reconciliation/block_registry.py`
+- Reconciliation models: `BrokerPosition`, `BrokerOrder`, `InternalPosition`, `InternalOrder`, `ReconciliationMismatch`, `ReconciliationResult`, `MismatchField` — `shared/reconciliation/models.py`
+- Mismatch stream key: `RECONCILIATION_MISMATCH_REDIS_STREAM = "reconciliation:mismatches"` — `shared/core/constants.py`
+- Block key prefix: `RECONCILIATION_BLOCKED_REDIS_KEY_PREFIX = "reconciliation:blocked"` — key format: `reconciliation:blocked:<EXCHANGE>:<SYMBOL>`
+- Cycle interval: `RECONCILIATION_INTERVAL_SECONDS = 90` — `shared/core/constants.py`
+- Price tolerance: `RECONCILIATION_TOLERANCE_PRICE_PCT = 0.001` (0.1%)
+- M18 must check `agent.is_blocked(symbol, exchange)` before forwarding any new-entry signal
 
 ## Tech stack summary
 

@@ -186,9 +186,24 @@ HOLIDAY_CACHE_MAX_AGE_DAYS: Final[int] = 7
 ASX_GROUP_OPEN_TOLERANCE_SECONDS: Final[int] = 15
 """+/- tolerance band on each ASX staggered-open group's published open time."""
 
-# --- Reconciliation (M17) ---
+# --- Reconciliation Agent (M17) ---
 RECONCILIATION_INTERVAL_SECONDS: Final[int] = 90
 """Mid-point of the spec's 60-120s reconciliation cycle band; tunable per deployment."""
+
+RECONCILIATION_BLOCKED_REDIS_KEY_PREFIX: Final[str] = "reconciliation:blocked"
+"""Redis key prefix for per-symbol entry block.
+Key format: ``reconciliation:blocked:<EXCHANGE>:<SYMBOL>``.
+Set to 'true' on mismatch; cleared when reconciled."""
+
+RECONCILIATION_MISMATCH_REDIS_STREAM: Final[str] = "reconciliation:mismatches"
+"""Redis Stream key for ReconciliationMismatch proto events (M18/M20)."""
+
+RECONCILIATION_TOLERANCE_PRICE_PCT: Final[float] = 0.001
+"""Avg-price mismatch threshold (0.1%).
+Below this fraction, rounding differences at the broker API are ignored."""
+
+RECONCILIATION_SQUAREOFF_DELAY_SECONDS: Final[int] = 30
+"""Seconds before square-off to trigger a final reconciliation pass."""
 
 # --- Agent health (M19) ---
 HEARTBEAT_INTERVAL_SECONDS: Final[int] = 30
