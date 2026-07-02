@@ -14,6 +14,7 @@ import litellm
 import structlog
 
 from shared.core.constants import SIGNAL_EXPLAIN_MODEL
+from shared.signals.models import SignalResult
 
 logger = structlog.get_logger(__name__)
 
@@ -34,27 +35,26 @@ Be specific about WHY this is a valid signal given the current regime and techni
 """
 
 
-def _build_prompt(result: object) -> str:
+def _build_prompt(result: SignalResult) -> str:
     """Build the explanation prompt from a `SignalResult`."""
-    r = result  # type: ignore[assignment]
     return _EXPLAIN_PROMPT_TEMPLATE.format(
-        symbol=r.symbol,  # type: ignore[attr-defined]
-        exchange=r.exchange,  # type: ignore[attr-defined]
-        direction=r.direction,  # type: ignore[attr-defined]
-        confidence=r.confidence,  # type: ignore[attr-defined]
-        regime=r.regime,  # type: ignore[attr-defined]
-        entry_price=r.entry_price,  # type: ignore[attr-defined]
-        stop_loss=r.stop_loss,  # type: ignore[attr-defined]
-        target1=r.target1,  # type: ignore[attr-defined]
-        target2=r.target2,  # type: ignore[attr-defined]
-        indicators=", ".join(r.confirming_indicators) or "none",  # type: ignore[attr-defined]
-        timeframes=", ".join(r.confirming_timeframes) or "none",  # type: ignore[attr-defined]
-        pattern=r.candlestick_pattern or "none",  # type: ignore[attr-defined]
+        symbol=result.symbol,
+        exchange=result.exchange,
+        direction=result.direction,
+        confidence=result.confidence,
+        regime=result.regime,
+        entry_price=result.entry_price,
+        stop_loss=result.stop_loss,
+        target1=result.target1,
+        target2=result.target2,
+        indicators=", ".join(result.confirming_indicators) or "none",
+        timeframes=", ".join(result.confirming_timeframes) or "none",
+        pattern=result.candlestick_pattern or "none",
     )
 
 
 async def explain_signal(
-    result: object,
+    result: SignalResult,
     model: str = SIGNAL_EXPLAIN_MODEL,
     api_key: str | None = None,
 ) -> str:
@@ -89,19 +89,17 @@ async def explain_signal(
             lambda: litellm.completion(**kwargs),
         )
         text: str = response.choices[0].message.content or ""
-        r = result  # type: ignore[assignment]
         logger.info(
             "signal_explanation_generated",
-            symbol=r.symbol,  # type: ignore[attr-defined]
+            symbol=result.symbol,
             model=model,
             tokens=response.usage.total_tokens if response.usage else 0,
         )
         return text.strip()
     except Exception:
-        r = result  # type: ignore[assignment]
         logger.warning(
             "signal_explanation_failed",
-            symbol=r.symbol,  # type: ignore[attr-defined]
+            symbol=result.symbol,
             model=model,
             exc_info=True,
         )

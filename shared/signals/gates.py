@@ -60,7 +60,7 @@ def gate_1_regime(ctx: SignalContext) -> GateResult:
     """
     from shared.regime.models import MarketRegime  # noqa: PLC0415
 
-    regime = ctx.regime  # type: ignore[attr-defined]
+    regime = ctx.regime
     regime_str: str = regime.regime.value
 
     if regime.regime == MarketRegime.HIGH_VOL_CHAOS:
@@ -111,7 +111,7 @@ def _check_indicator(
     ind = values.get(name, {})
 
     def _v(key: str) -> float | None:
-        return ind.get(key)  # type: ignore[return-value]
+        return ind.get(key)
 
     if name == "EMA":
         ema9, ema21 = _v("EMA_9"), _v("EMA_21")
@@ -130,8 +130,8 @@ def _check_indicator(
         if rsi is None:
             return False
         if direction == "LONG":
-            return rsi > RSI_BULLISH_LEVEL  # type: ignore[operator]
-        return rsi < RSI_BEARISH_LEVEL  # type: ignore[operator]
+            return rsi > RSI_BULLISH_LEVEL
+        return rsi < RSI_BEARISH_LEVEL
 
     if name == "MACD":
         hist = _v("MACD_HIST")
@@ -144,8 +144,8 @@ def _check_indicator(
         if k is None or d is None:
             return False
         if direction == "LONG":
-            return k > 50 and k > d  # type: ignore[operator]
-        return k < 50 and k < d  # type: ignore[operator]
+            return k > 50 and k > d
+        return k < 50 and k < d
 
     if name == "BBANDS":
         mid = _v("BB_MIDDLE")
@@ -173,7 +173,7 @@ _GATE_2_INDICATORS = (
 
 def gate_2_indicators(ctx: SignalContext) -> GateResult:
     """Gate 2: At least 3 of 8 indicators must agree with the signal direction."""
-    pattern_snapshot = ctx.pattern_snapshot  # type: ignore[attr-defined]
+    pattern_snapshot = ctx.pattern_snapshot
     orb_direction: int | None = None
     if pattern_snapshot is not None and pattern_snapshot.orb_state is not None:
         orb_direction = pattern_snapshot.orb_state.breakout_direction
@@ -292,7 +292,7 @@ def gate_4_candlestick(ctx: SignalContext) -> GateResult:
     Checks the last 3 bars of the primary-timeframe snapshot. ORB breakout
     in the matching direction also qualifies as pattern confirmation.
     """
-    pattern_snapshot = ctx.pattern_snapshot  # type: ignore[attr-defined]
+    pattern_snapshot = ctx.pattern_snapshot
     if pattern_snapshot is None:
         return GateResult(
             gate_number=4,
@@ -344,7 +344,7 @@ def gate_5_multi_timeframe(ctx: SignalContext) -> GateResult:
     Uses pre-computed `MultiTimeframePatterns.confirmed_bullish/bearish_patterns`
     which the pattern engine already filters by GATE_5_MIN_TIMEFRAMES_AGREEING.
     """
-    mtf = ctx.multi_tf_patterns  # type: ignore[attr-defined]
+    mtf = ctx.multi_tf_patterns
 
     if mtf is None:
         return GateResult(
@@ -406,7 +406,7 @@ def gate_6_sr_proximity(ctx: SignalContext) -> GateResult:
     LONG signals require proximity to a SUPPORT level; SHORT signals require
     proximity to a RESISTANCE level. Pivot point levels are treated as S/R.
     """
-    pattern_snapshot = ctx.pattern_snapshot  # type: ignore[attr-defined]
+    pattern_snapshot = ctx.pattern_snapshot
     if pattern_snapshot is None:
         return GateResult(
             gate_number=6,
@@ -542,7 +542,7 @@ def gate_8_divergence(ctx: SignalContext) -> GateResult:
             adjustment -= GATE_8_DIVERGENCE_PENALTY
             reasons.append(f"MACD histogram diverges ({macd_hist:+.4f})")
 
-    sentiment = ctx.sentiment  # type: ignore[attr-defined]
+    sentiment = ctx.sentiment
     if sentiment is not None:
         score: float = sentiment.aggregate_score
         if ctx.direction == "LONG" and score > 0.3:
@@ -617,7 +617,10 @@ def _compute_stop_loss(
 
 
 def _compute_targets(
-    entry_price: float, stop_loss: float, direction: str, regime: object
+    entry_price: float,
+    stop_loss: float,
+    direction: str,
+    regime: RegimeClassification,
 ) -> tuple[float, float]:
     """Risk-to-reward targets derived from regime reward:risk ratios."""
     from shared.core.constants import (  # noqa: PLC0415
@@ -629,10 +632,9 @@ def _compute_targets(
     )
     from shared.regime.models import MarketRegime  # noqa: PLC0415
 
-    regime_obj = regime  # type: ignore[attr-defined]
-    if regime_obj.regime == MarketRegime.BULL_TREND:
+    if regime.regime == MarketRegime.BULL_TREND:
         rr = REWARD_RISK_RATIO_BULL_TREND
-    elif regime_obj.regime == MarketRegime.BEAR_TREND:
+    elif regime.regime == MarketRegime.BEAR_TREND:
         rr = REWARD_RISK_RATIO_BEAR_TREND
     else:
         rr = REWARD_RISK_RATIO_MEAN_REVERTING

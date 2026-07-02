@@ -199,8 +199,9 @@ def cmd_replay(args: argparse.Namespace) -> int:
         print(f"  Generated: {result.generated}")
         if not result.generated:
             gate_num = result.failed_at_gate
-            reason = result.gate_results[gate_num - 1].reason  # type: ignore[index]
-            print(f"  Blocked at Gate {gate_num}: {reason}")
+            if gate_num is not None:
+                reason = result.gate_results[gate_num - 1].reason
+                print(f"  Blocked at Gate {gate_num}: {reason}")
         assert not result.generated, "VERIFY FAIL: signal generated in HIGH_VOL_CHAOS!"
         print("  PASS: Zero signals during chaos regime confirmed.\n")
         return 0

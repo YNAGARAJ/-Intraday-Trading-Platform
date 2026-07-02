@@ -111,13 +111,13 @@ every module standalone-runnable, tested, linted, and committed before the next 
 | M22 | Dashboard & API | FastAPI REST + WebSocket, Streamlit operational UI |
 | M23 | Docker & Cloud Deployment | Multi-stage Dockerfiles, AWS deploy scripts, CI/CD, Locust load tests, DR posture documented |
 
-## Current build state (updated 2026-07-01)
+## Current build state (updated 2026-07-02)
 
-**Last completed module:** M10 — Sentiment & News Agent
-**Next module to build:** M11 — Signal Generation Agent
+**Last completed module:** M11 — Signal Generation Agent
+**Next module to build:** M12 — Risk & Position Sizing Engine
 
-Verified clean as of this date: 742 unit tests passing (58 skipped: integration tests requiring
-live TimescaleDB/Redis), ruff clean, mypy --strict clean. 151 new M10 unit tests all pass.
+Verified clean as of this date: 865 unit tests passing (58 skipped: integration tests requiring
+live TimescaleDB/Redis), ruff clean, mypy --strict clean. 123 new M11 unit tests all pass.
 
 **M01–M08 independent audit completed 2026-07-01** (commit 1c55be6). All findings resolved:
 - `promote_classifier(backtest_metrics: BacktestMetrics)` — `Any` removed (was S2)
@@ -176,6 +176,23 @@ live TimescaleDB/Redis), ruff clean, mypy --strict clean. 151 new M10 unit tests
 - Sentiment cache key: `sentiment:cache:<model_version>` — 24-hour TTL
 - Sentiment cost key: `sentiment:cost:daily:<YYYYMMDD>`
 - Default sentiment model: `SENTIMENT_DEFAULT_MODEL = "groq/llama-3.1-8b-instant"` — `shared/core/constants.py`
+
+**M11 notes:**
+- 9-gate pure Python evaluation < 100ms. Gates 1-7, 9 terminate on fail; Gate 8 modulates confidence only.
+- Gate 1: HIGH_VOL_CHAOS → hard fail (RULE 2). BULL_TREND blocks SHORT; BEAR_TREND blocks LONG.
+- Gate 9: threshold 0.70 normal, 0.80 in SEBI snapshot window (14:45-15:30 IST).
+- Atomic Lua dedup: checks `system:status:halted` + dedup key before publishing to stream.
+- LLM explain: Groq 70B, async after publish, max 200 tokens, silent fail.
+
+**M11 API names:**
+- Signal engine: `SignalEngine().evaluate(ctx)` → `SignalResult` — `shared/signals/engine.py`
+- Signal models: `SignalContext`, `SignalResult`, `GateResult`, `SignalDirection` — `shared/signals/models.py`
+- Signal publisher: `SignalPublisher(redis_client).publish(result)` → `str | None` — `shared/signals/publisher.py`
+- Signal explainer: `explain_signal(result, model, api_key)` (async) → `str` — `shared/signals/explainer.py`
+- Signal stream key: `SIGNAL_REDIS_STREAM = "signals:generated"` — `shared/core/constants.py`
+- Signal expiry: `SIGNAL_EXPIRY_MINUTES = 5` — dedup window: `SIGNAL_DEDUP_WINDOW_SECONDS = 60`
+- Signal explain model: `SIGNAL_EXPLAIN_MODEL = "groq/llama-3.1-70b-versatile"`
+- Dedup Lua: `shared/lua/signal_dedup.lua` — returns `{1, "PUBLISHED", entry_id}` / `{0, "HALTED"}` / `{0, "DUPLICATE"}`
 
 ## Tech stack summary
 

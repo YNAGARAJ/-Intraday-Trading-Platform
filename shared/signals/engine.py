@@ -42,7 +42,7 @@ def _failed_result(
     failed_gate: int,
 ) -> SignalResult:
     """Build a `SignalResult` for a signal that failed at `failed_gate`."""
-    regime_str: str = ctx.regime.regime.value  # type: ignore[attr-defined]
+    regime_str: str = ctx.regime.regime.value
     return SignalResult(
         generated=False,
         symbol=ctx.symbol,
@@ -97,7 +97,7 @@ class SignalEngine:
             (gate_6_sr_proximity, 6),
             (gate_7_session_timing, 7),
         ):
-            result = gate_fn(ctx)  # type: ignore[operator]
+            result = gate_fn(ctx)
             gate_results.append(result)
             if not result.passed:
                 elapsed_ms = (time.monotonic() - t0) * 1000
@@ -145,7 +145,7 @@ class SignalEngine:
             if gr.candlestick_pattern:
                 candlestick_pattern = gr.candlestick_pattern
 
-        regime_str: str = ctx.regime.regime.value  # type: ignore[attr-defined]
+        regime_str: str = ctx.regime.regime.value
 
         elapsed_ms = (time.monotonic() - t0) * 1000
         logger.info(
