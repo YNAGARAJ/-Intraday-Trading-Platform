@@ -113,10 +113,10 @@ every module standalone-runnable, tested, linted, and committed before the next 
 
 ## Current build state (updated 2026-07-02)
 
-**Last completed module:** M19 — Real-Time Monitor Agent
-**Next module to build:** M20 — Alerting & Notification
+**Last completed module:** M20 — Alerting & Notification
+**Next module to build:** M21 — Reporting Module
 
-Verified clean as of this date: 1579 unit tests passing (70 new M19 tests), ruff clean,
+Verified clean as of this date: 1696 unit tests passing (117 new M20 tests), ruff clean,
 mypy --strict clean. 20/20 VERIFY scenarios pass.
 
 **M01–M08 independent audit completed 2026-07-01** (commit 1c55be6). All findings resolved:
@@ -314,6 +314,19 @@ mypy --strict clean. 20/20 VERIFY scenarios pass.
 - Tier 3 trigger threshold: `MAX_MISSED_HEARTBEATS_BEFORE_KILL = 2` consecutive misses
 - Prometheus port: `PROMETHEUS_METRICS_PORT = 8000`
 - Grafana dashboard: `shared/monitor/grafana_dashboard.json` — import via Grafana → Dashboards → Import
+
+**M20 API names:**
+- Alert models: `Alert`, `AlertLevel`, `AlertType` — `shared/alerts/models.py`
+- Telegram channel: `TelegramAlerter(bot_token, chat_id, http_session)` — `.send(message)` → `bool` — `shared/alerts/telegram.py`
+- Email channel: `EmailAlerter(smtp_host, smtp_port, username, password, from_addr, to_addrs)` — `shared/alerts/email_sender.py`
+- Email methods: `.build_pdf(title, lines)` → `bytes`; `.send_daily_report(subject, body, pdf_bytes)` → `bool`; `.send(message)` → `bool`
+- LLM cost monitor: `LLMCostAlerter(redis_client, dispatcher, threshold_usd)` — `.check(now_date)` → `float` — `shared/alerts/cost_alert.py`
+- Dispatcher: `AlertDispatcher(telegram, email, rate_limit_per_minute)` — `shared/alerts/dispatcher.py`
+- Dispatcher methods: `.dispatch(alert)` → `bool`; `.dispatch_daily_report(subject, body, pdf_bytes)` → `bool`
+- Rate limit: `ALERT_TELEGRAM_RATE_LIMIT_PER_MINUTE = 20` — KILL_SWITCH and CIRCUIT_BREAKER bypass (RULE 8)
+- Cost threshold: `LLM_COST_ALERT_THRESHOLD_USD = 0.80` — alert at 80% of $1/day target
+- Settings: `telegram_bot_token`, `telegram_chat_id`, `smtp_host`, `smtp_port`, `smtp_username`, `smtp_password`, `alert_email_from`, `alert_email_to` — all optional, fail-open
+- Note: fpdf2==2.7.8 installed (pip); must add to pyproject.toml before M23 Docker build
 
 ## Tech stack summary
 

@@ -57,6 +57,16 @@ class Settings(BaseSettings):
     postgres_dsn: str = "postgresql://trading:trading@localhost:5432/trading"
     timescale_dsn: str = "postgresql://trading:trading@localhost:5433/trading_ts"
 
+    # M20 — Alerting & Notification (all optional; degrades gracefully when unset)
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    alert_email_from: str = ""
+    alert_email_to: str = ""
+
     @property
     def is_live_trading_enabled(self) -> bool:
         """True only when both `trading_mode=LIVE` and `live_trading_confirmed=true`.

@@ -148,9 +148,6 @@ KILL_SWITCH_REASON_KEY: Final[str] = "system:kill_switch:reason"
 # --- Caching / TTLs ---
 PRICE_CACHE_TTL_SECONDS: Final[int] = 5
 INDICATOR_CACHE_TTL_SECONDS: Final[int] = 30
-SHORT_TERM_MEMORY_TTL_SECONDS: Final[int] = 3600
-"""Redis short-term memory tier: rolling 1-hour TTL (ACT-R architecture)."""
-
 # --- Order Execution Engine (M14) ---
 MAX_RETRIES: Final[int] = 3
 """Maximum broker submission retries on transient errors before dead-lettering."""
@@ -167,7 +164,6 @@ BATCH_FLUSH_MAX_SECONDS: Final[float] = 5.0
 """Batch consumer flushes to TimescaleDB at 1,000 ticks or 5s, whichever is first."""
 
 # --- ACT-R memory decay ---
-WORKING_MEMORY_MAX_TOKENS: Final[int] = 2000
 ACT_R_DECAY_PARAMETER_D: Final[float] = 0.5
 
 # --- Data retention ---
@@ -247,6 +243,15 @@ Key format: ``monitor:heartbeat:<agent_name>``."""
 
 PROMETHEUS_METRICS_PORT: Final[int] = 8000
 """Default HTTP port for the Prometheus /metrics endpoint."""
+
+# --- Alerting & Notification (M20) ---
+ALERT_TELEGRAM_RATE_LIMIT_PER_MINUTE: Final[int] = 20
+"""Maximum Telegram messages dispatched per 60-second window.
+KILL_SWITCH and CIRCUIT_BREAKER alerts bypass this limit (RULE 8)."""
+
+LLM_COST_ALERT_THRESHOLD_USD: Final[float] = 0.80
+"""Fire an LLM_COST alert when daily spend reaches 80% of LLM_DAILY_COST_TARGET_USD.
+Early warning allows manual intervention before the hard $1/day ceiling is breached."""
 
 # --- LLM cost optimisation ---
 SENTIMENT_BATCH_MAX_HEADLINES: Final[int] = 20
