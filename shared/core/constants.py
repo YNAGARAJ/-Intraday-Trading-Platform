@@ -205,6 +205,32 @@ Below this fraction, rounding differences at the broker API are ignored."""
 RECONCILIATION_SQUAREOFF_DELAY_SECONDS: Final[int] = 30
 """Seconds before square-off to trigger a final reconciliation pass."""
 
+# --- Agent Orchestrator (M18) ---
+HITL_CAPITAL_THRESHOLD_PCT: Final[float] = 0.05
+"""Positions exceeding 5% of starting capital require Human-in-the-Loop approval
+before the execution engine may proceed (RULE 8 / spec §HITL)."""
+
+ORCHESTRATOR_STATE_REDIS_KEY: Final[str] = "orchestrator:state"
+"""Redis key where the orchestrator serialises full TradingSystemState on shutdown."""
+
+ORCHESTRATOR_THREAD_ID_REDIS_KEY: Final[str] = "orchestrator:thread_id"
+"""Redis key storing the current LangGraph thread_id for state resumption."""
+
+WORKING_MEMORY_MAX_TOKENS: Final[int] = 2_000
+"""Maximum tokens kept in LangGraph working memory; older entries pruned first."""
+
+SHORT_TERM_MEMORY_TTL_SECONDS: Final[int] = 3_600
+"""TTL for Redis-backed short-term agent memory (rolling 1-hour window)."""
+
+SHORT_TERM_MEMORY_REDIS_KEY_PREFIX: Final[str] = "orchestrator:stm"
+"""Redis key namespace for short-term memory: ``orchestrator:stm:<key>``."""
+
+ACT_R_DECAY_PARAM: Final[float] = 0.5
+"""ACT-R memory decay exponent d; activation = ln(Σ t_i^(−d)), t_i in seconds."""
+
+LLM_COMPLEX_DAILY_COUNTER_KEY: Final[str] = "orchestrator:llm:complex:{date}"
+"""Redis counter key for Claude Sonnet (complex model) calls; resets daily."""
+
 # --- Agent health (M19) ---
 HEARTBEAT_INTERVAL_SECONDS: Final[int] = 30
 MAX_MISSED_HEARTBEATS_BEFORE_KILL: Final[int] = 2

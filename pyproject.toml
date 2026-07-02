@@ -114,6 +114,13 @@ exclude = ["shared/proto/messages_pb2.py", "shared/proto/messages_pb2.pyi"]
 module = ["litellm", "litellm.*"]
 follow_imports = "skip"
 
+[[tool.mypy.overrides]]
+# langgraph 0.0.30 stubs are incomplete (RunnableConfig, Pregel return Any).
+# Skip to avoid spurious errors while keeping all our own orchestrator code
+# fully type-checked.
+module = ["langgraph", "langgraph.*", "langchain", "langchain.*"]
+follow_imports = "skip"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

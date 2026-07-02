@@ -113,10 +113,10 @@ every module standalone-runnable, tested, linted, and committed before the next 
 
 ## Current build state (updated 2026-07-02)
 
-**Last completed module:** M17 — Reconciliation Agent
-**Next module to build:** M18 — Agent Orchestrator (LangGraph)
+**Last completed module:** M18 — Agent Orchestrator (LangGraph)
+**Next module to build:** M19 — Real-Time Monitor Agent
 
-Verified clean as of this date: 1398 unit tests passing (65 new M17 tests), ruff clean,
+Verified clean as of this date: 1509 unit tests passing (111 new M18 tests), ruff clean,
 mypy --strict clean. 20/20 VERIFY scenarios pass.
 
 **M01–M08 independent audit completed 2026-07-01** (commit 1c55be6). All findings resolved:
@@ -275,6 +275,28 @@ mypy --strict clean. 20/20 VERIFY scenarios pass.
 - Cycle interval: `RECONCILIATION_INTERVAL_SECONDS = 90` — `shared/core/constants.py`
 - Price tolerance: `RECONCILIATION_TOLERANCE_PRICE_PCT = 0.001` (0.1%)
 - M18 must check `agent.is_blocked(symbol, exchange)` before forwarding any new-entry signal
+
+**M18 API names:**
+- State schema: `TradingSystemState` TypedDict — `shared/orchestrator/state.py`
+- State helpers: `make_initial_state(market_date)` → `TradingSystemState`, `state_to_json(state)` → `str`, `state_from_json(raw)` → `TradingSystemState`
+- Working memory: `WorkingMemory(max_tokens).put(key, value)`, `.get(key)`, `.delete(key)`, `.token_count()` — `shared/orchestrator/memory.py`
+- Short-term memory: `ShortTermMemory(redis_client, ttl_seconds, key_prefix).put/get/delete(key)` — Redis TTL 1 hour, in-memory fallback
+- Long-term memory entry: `LongTermMemoryEntry(key, content, retrieved_at_seconds)` — `.activation_score(now_s)`, `.record_retrieval(now_s)` — ACT-R formula: `ln(Σ t_i^(-0.5))`
+- Long-term memory: `LongTermMemory(db_conn).store(key, content)`, `.retrieve(key, record_access)`, `.retrieve_top_k(top_k, now_s)`, `.score_nightly(now_s)`, `.apply_schema(db_conn)` — falls back to in-memory dict
+- ACT-R facade: `ACTRMemory(redis_client, db_conn, working_max_tokens).remember(key, value, tier)`, `.recall(key, tier)` — tier: `"working"` | `"short_term"` | `"long_term"`
+- Orchestrator graph: `OrchestratorGraph(redis_client, starting_capital, reconciliation_blocked_fn, thread_id, enable_hitl)` — `shared/orchestrator/graph.py`
+- Graph cycle: `.run_cycle(input_state)` → `TradingSystemState | None` (None = HITL interrupted)
+- HITL resume: `.approve_hitl()` → `TradingSystemState | None`, `.reject_hitl()` → `None`
+- Kill switch: `.trigger_kill_switch(reason)` — sets `kill_switch_active=True` immediately; preempts HITL (RULE 8)
+- Halt check: `.is_halted()` → `bool` — True when kill_switch or circuit_breaker active
+- State access: `.get_state()` → `TradingSystemState`
+- Persistence: `.shutdown()` → writes to `ORCHESTRATOR_STATE_REDIS_KEY`, `.restore(redis_client)` → `OrchestratorGraph`
+- Routing fn: `OrchestratorGraph._route_after_risk(state)` → `"kill"` | `"hitl"` | `"end"` — kill/CB always wins over HITL
+- HITL threshold: `HITL_CAPITAL_THRESHOLD_PCT = 0.05` (5%) — `shared/core/constants.py`
+- State Redis key: `ORCHESTRATOR_STATE_REDIS_KEY = "orchestrator:state"` — crash-recovery persistence
+- STM Redis prefix: `SHORT_TERM_MEMORY_REDIS_KEY_PREFIX = "orchestrator:stm"`
+- ACT-R decay param: `ACT_R_DECAY_PARAM = 0.5` — `shared/core/constants.py`
+- mypy override: `langgraph`, `langgraph.*`, `langchain`, `langchain.*` → `follow_imports = "skip"` (incomplete stubs, same as litellm)
 
 ## Tech stack summary
 
