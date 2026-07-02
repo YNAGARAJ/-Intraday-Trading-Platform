@@ -694,3 +694,20 @@ CANDLE_INTERVAL_1M: Final[int] = 60
 
 CANDLE_INTERVAL_5M: Final[int] = 300
 """Canonical 5-minute OHLCV candle interval in seconds."""
+
+# ---------------------------------------------------------------------------
+# M22 — Dashboard & API
+# ---------------------------------------------------------------------------
+
+API_KEY_HEADER: Final[str] = "X-API-Key"
+"""HTTP header name used to authenticate control-plane requests to the FastAPI layer."""
+
+API_WS_HEARTBEAT_INTERVAL_SECONDS: Final[int] = 30
+"""Seconds between server-side heartbeat pings on the live WebSocket stream."""
+
+API_SIGNALS_STREAM_MAX_READ: Final[int] = 50
+"""Maximum number of signal events to return from the Redis stream per REST request."""
+
+API_PAUSE_REDIS_KEY: Final[str] = "system:status:paused"
+"""Redis key (string) set to '1' when the operator has requested a new-entry pause.
+M18 orchestrator must check this before forwarding any new-entry signal."""

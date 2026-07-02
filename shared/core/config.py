@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     postgres_dsn: str = "postgresql://trading:trading@localhost:5432/trading"
     timescale_dsn: str = "postgresql://trading:trading@localhost:5433/trading_ts"
 
+    # M22 — Dashboard & API
+    api_key: str = ""
+    """X-API-Key for control endpoints. Empty string disables auth (dev only)."""
+    api_port: int = 8080
+    """FastAPI server port (separate from Prometheus metrics port 8000)."""
+    api_dashboard_base_url: str = "http://localhost:8080"
+    """Base URL the Streamlit dashboard uses to reach the FastAPI server."""
+
     # M20 — Alerting & Notification (all optional; degrades gracefully when unset)
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
@@ -137,3 +145,13 @@ def load_region_config(path: Path) -> RegionConfig:
         return RegionConfig.model_validate(raw)
     except ValidationError as exc:
         raise ConfigValidationError(f"Invalid region config {path}: {exc}") from exc
+
+
+# Module-level singleton — loaded once at import time from env / .env file.
+# Downstream modules (M22 API layer, dashboard) import this directly.
+# In tests, patch this object's attributes rather than reloading the module.
+settings: Settings = Settings.model_construct()
+try:
+    settings = Settings()
+except Exception:  # noqa: BLE001
+    pass  # Falls back to model_construct defaults — test environments may lack APP_ID

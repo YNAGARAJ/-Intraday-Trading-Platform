@@ -113,10 +113,10 @@ every module standalone-runnable, tested, linted, and committed before the next 
 
 ## Current build state (updated 2026-07-02)
 
-**Last completed module:** M21 — Reporting Module
-**Next module to build:** M22 — Dashboard & API
+**Last completed module:** M22 — Dashboard & API
+**Next module to build:** M23 — Docker & Cloud Deployment
 
-Verified clean as of this date: 1823 unit tests passing (127 new M21 tests), ruff clean,
+Verified clean as of this date: 1907 unit tests passing (84 new M22 tests), ruff clean,
 mypy --strict clean. 20/20 VERIFY scenarios pass.
 
 **M01–M08 independent audit completed 2026-07-01** (commit 1c55be6). All findings resolved:
@@ -346,6 +346,26 @@ mypy --strict clean. 20/20 VERIFY scenarios pass.
 - Markout curve: only emits `MarkoutPoint` for offsets with ≥ 1 non-None trade value
 - Note: fpdf2 Helvetica is Latin-1 only — em-dashes must not appear in PDF text strings
 - Note: openpyxl==3.1.5 added to pyproject.toml
+
+**M22 API names:**
+- FastAPI app factory: `create_app()` → `FastAPI` — `api/app.py`
+- Redis dependency: `get_redis()` → `Generator[redis.Redis, None, None]` — `api/deps.py`
+- Auth (always enforce): `require_api_key` — `api/auth.py`; used on all control endpoints
+- Auth (optional): `optional_api_key` — `api/auth.py`; enforced only when `settings.api_key` is set
+- Response models: `SystemStatus`, `PositionOut`, `SignalOut`, `PnLOut`, `WatchlistOut`, `ControlResponse` — `api/models.py`
+- Kill endpoint: `POST /api/v1/controls/kill` → `ControlResponse` — delegates to `KillSwitchManager.trigger_tier2(source="rest_api")`; `is_priority` set internally, never by API layer (RULE 8)
+- Pause endpoint: `POST /api/v1/controls/pause` → sets `API_PAUSE_REDIS_KEY = "system:status:paused"`
+- Resume endpoint: `POST /api/v1/controls/resume` → deletes `API_PAUSE_REDIS_KEY`
+- WebSocket: `GET /ws/live` — sends `{"type":"ping","ts":ms}` on connect, then `{"type":"signal","id":...,"data":{...},"ts":ms}` per stream entry; auth via `?api_key=` query param; close code 4001 on bad key
+- WS constants: `API_WS_HEARTBEAT_INTERVAL_SECONDS = 30`, `API_SIGNALS_STREAM_MAX_READ = 50` — `shared/core/constants.py`
+- Pause key: `API_PAUSE_REDIS_KEY = "system:status:paused"` — `shared/core/constants.py`
+- API settings: `settings.api_key` (str, empty = dev mode), `settings.api_port` (int, default 8080), `settings.api_dashboard_base_url` (str)
+- Run server: `python -m api --serve` — uvicorn on `settings.api_port`
+- Run VERIFY: `python -m api` — 20 scenarios, returns exit code 0 if all pass
+- Dashboard data layer: `fetch_status()`, `fetch_positions()`, `fetch_signals(limit)`, `fetch_pnl()`, `fetch_watchlist(exchange)`, `post_kill(api_key)`, `post_pause(api_key)`, `post_resume(api_key)` — `dashboard/fetcher.py`; all use httpx, no Streamlit dependency
+- httpx pinned: `httpx==0.27.2` — starlette 0.36 TestClient uses `httpx.Client(app=...)` removed in 0.28; must stay at 0.27.x until starlette is upgraded
+- Testing pattern: use `app.dependency_overrides[get_redis] = lambda: mock_r` for all get_redis tests — `patch("api.routers.*.get_redis")` does NOT work (Depends captures function object at import)
+- WebSocket internal Redis: `_poll()` creates its own `redis.Redis.from_url(settings.redis_url)` connection in executor thread — not injectable via dependency_overrides; patch `api.routers.ws.settings` to control URL
 
 ## Tech stack summary
 
