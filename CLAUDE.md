@@ -113,10 +113,10 @@ every module standalone-runnable, tested, linted, and committed before the next 
 
 ## Current build state (updated 2026-07-02)
 
-**Last completed module:** M14 — Order Execution Engine
-**Next module to build:** M15 — Authentication & Token Manager
+**Last completed module:** M15 — Authentication & Token Manager
+**Next module to build:** M16 — Data Ingestion Agent
 
-Verified clean as of this date: 1202 unit tests passing (66 new M14 tests), ruff clean,
+Verified clean as of this date: 1271 unit tests passing (65 new M15 tests), ruff clean,
 mypy --strict clean. 20/20 VERIFY scenarios pass.
 
 **M01–M08 independent audit completed 2026-07-01** (commit 1c55be6). All findings resolved:
@@ -237,6 +237,20 @@ mypy --strict clean. 20/20 VERIFY scenarios pass.
 - Redis halt key: `KILL_SWITCH_HALTED_KEY = "system:status:halted"` — checked before every non-priority submission
 - DLQ Redis key: `DLQ_REDIS_KEY = "dlq:orders"` — append-only list, never deleted
 - Retry constants: `MAX_RETRIES = 3`, `RETRY_BASE_DELAY_SECONDS = 0.5` — `shared/core/constants.py`
+
+**M15 API names:**
+- Auth mode: `AuthMode` enum — PAPER, LIVE — `shared/auth/models.py`
+- Token record: `TokenRecord(broker, access_token, issued_at_ms, expires_at_ms, user_id, mode)` — `.is_valid(now_ms)` → `bool`; `__repr__` hides access_token
+- IBKR slot: `IBKRClientSlot(client_id, host, port)` — `.acquire()`, `.release()` — `shared/auth/models.py`
+- Token store: `TokenStore(redis_client=None)` — `.save(record, ttl_seconds)`, `.load(broker)` → `TokenRecord | None`, `.delete(broker)` — `shared/auth/token_store.py`
+- Auth error: `AuthError(Exception)` — raised when no valid token and login not possible
+- Kite auth: `KiteAuthManager(user_id, password, totp_secret, api_key, api_secret, token_store, mode, http_session)` — `.login()` → `TokenRecord`, `.get_token()` → `TokenRecord`, `.invalidate()` — `shared/auth/kite_auth.py`
+- IBKR pool: `IBKRConnectionPool(host, mode, pool_size, start_client_id, enable_heartbeat)` — `.acquire()` → `IBKRClientSlot`, `.release(slot)`, `.connect(slot)` → `bool`, `.shutdown()`, `.available_count()` → `int`, `.pool_size()` → `int`, `.port` property — `shared/auth/ibkr_auth.py`
+- Scheduler: `DailyRefreshScheduler(callback, refresh_hour=8, refresh_minute=30)` — `.start()`, `.stop()` — `shared/auth/scheduler.py`
+- Kite token Redis key: `KITE_TOKEN_REDIS_KEY = "auth:kite:access_token"` — TTL=`KITE_SESSION_TTL_SECONDS` (30600s)
+- IBKR ports: `IBKR_PAPER_PORT=7497`, `IBKR_LIVE_PORT=7496` — env-controlled via `TRADING_MODE`
+- Pool max: `IBKR_CLIENT_ID_POOL_MAX=8` — `pool_size > MAX` raises `ValueError`
+- Paper mode: `AuthMode.PAPER` returns `PAPER_TOKEN_SIMULATED` without real HTTP calls
 
 ## Tech stack summary
 

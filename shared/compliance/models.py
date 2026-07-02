@@ -53,6 +53,7 @@ class OrderIntent:
     is_exit: bool = False
     mwpl_pct: float | None = None
     sector: str = "UNKNOWN"
+    is_priority: bool = False
 
 
 @dataclass(frozen=True)

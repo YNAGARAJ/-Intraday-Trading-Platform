@@ -151,6 +151,16 @@ INDICATOR_CACHE_TTL_SECONDS: Final[int] = 30
 SHORT_TERM_MEMORY_TTL_SECONDS: Final[int] = 3600
 """Redis short-term memory tier: rolling 1-hour TTL (ACT-R architecture)."""
 
+# --- Order Execution Engine (M14) ---
+MAX_RETRIES: Final[int] = 3
+"""Maximum broker submission retries on transient errors before dead-lettering."""
+
+RETRY_BASE_DELAY_SECONDS: Final[float] = 0.5
+"""Base delay for exponential jitter retry: ``base * 2^attempt + uniform(0, 0.1)``."""
+
+DLQ_REDIS_KEY: Final[str] = "dlq:orders"
+"""Redis list key for the dead-letter queue (permanently-failed orders)."""
+
 # --- Ingestion buffering pipeline ---
 BATCH_FLUSH_MAX_TICKS: Final[int] = 1000
 BATCH_FLUSH_MAX_SECONDS: Final[float] = 5.0
@@ -559,3 +569,39 @@ GATE_8_DIVERGENCE_PENALTY: Final[float] = 0.10
 
 GATE_8_ALIGNMENT_BONUS: Final[float] = 0.05
 """Confidence boost when Gate 8 indicators align with signal direction."""
+
+# --- Authentication & Token Manager (M15) ---
+KITE_SESSION_TTL_SECONDS: Final[int] = 30_600
+"""Kite session TTL in Redis: 8.5 hours (expires at end of India trading day)."""
+
+KITE_DAILY_REFRESH_IST_HOUR: Final[int] = 8
+KITE_DAILY_REFRESH_IST_MINUTE: Final[int] = 30
+"""Daily token refresh scheduled for 08:30 IST — before NSE market open at 09:15."""
+
+KITE_TOKEN_REDIS_KEY: Final[str] = "auth:kite:access_token"
+"""Redis key storing the live Kite access token."""
+
+KITE_LOGIN_URL: Final[str] = "https://kite.zerodha.com/api/login"
+"""Kite TOTP login endpoint (username + password step)."""
+
+KITE_TWOFA_URL: Final[str] = "https://kite.zerodha.com/api/twofa"
+"""Kite TOTP two-factor endpoint (TOTP code step)."""
+
+IBKR_PAPER_PORT: Final[int] = 7497
+"""IBKR TWS paper-trading port — must match TWS/Gateway configuration."""
+
+IBKR_LIVE_PORT: Final[int] = 7496
+"""IBKR TWS live-trading port — must match TWS/Gateway configuration."""
+
+IBKR_HEARTBEAT_INTERVAL_SECONDS: Final[int] = 30
+"""TWS connection heartbeat interval to keep the socket alive (per IBKR docs)."""
+
+IBKR_CLIENT_ID_POOL_MAX: Final[int] = 8
+"""Maximum concurrent clientId slots in the IBKR connection pool.
+IBKR allows up to 32 concurrent connections per TWS instance; 8 is conservative."""
+
+IBKR_CONNECTION_TIMEOUT_SECONDS: Final[int] = 10
+"""Timeout for establishing a new TWS EClient connection."""
+
+AUTH_TOKEN_REDIS_KEY_PREFIX: Final[str] = "auth"
+"""Redis key namespace for all auth tokens: ``auth:<broker>:<field>``."""
