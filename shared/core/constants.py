@@ -90,9 +90,31 @@ VOLUME_CONFIRMATION_MULTIPLIER: Final[float] = 1.5
 RSI_BULLISH_LEVEL: Final[float] = 55.0
 RSI_BEARISH_LEVEL: Final[float] = 45.0
 
-# --- Risk & Position Sizing ---
+# --- Risk & Position Sizing (M12) ---
 MAX_POSITION_CORRELATION: Final[float] = 0.7
 """Correlation guard: max allowed correlation between open positions."""
+
+KELLY_FRACTION: Final[float] = 0.25
+"""Quarter-Kelly fraction for conservative fractional Kelly sizing.
+Kelly is OFF by default; requires paper-trading validation before enabling live."""
+
+CORRELATION_LOOKBACK_DAYS: Final[int] = 20
+"""Days of daily returns used for Pearson correlation guard computation."""
+
+PROFIT_LOCK_PCT: Final[float] = 2.0
+"""Optional daily profit-lock threshold: no new entries once daily P&L > +2%."""
+
+RISK_HALTED_REDIS_KEY: Final[str] = "system:status:halted"
+"""Redis key set to 'true' by M18 Kill Switch; M12 reads this to block entries."""
+
+RISK_DAILY_PNL_REDIS_KEY: Final[str] = "risk:daily:pnl:{date}"
+"""Redis key pattern for daily P&L tracking (YYYYMMDD substituted at runtime)."""
+
+RISK_DAILY_TRADES_REDIS_KEY: Final[str] = "risk:daily:trades:{date}"
+"""Redis key pattern for daily trade count (YYYYMMDD substituted at runtime)."""
+
+MIN_STOP_DISTANCE_PCT: Final[float] = 0.05
+"""Minimum stop distance as % of entry price to prevent division-by-zero in sizing."""
 
 # --- Caching / TTLs ---
 PRICE_CACHE_TTL_SECONDS: Final[int] = 5

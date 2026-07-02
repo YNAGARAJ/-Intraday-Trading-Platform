@@ -113,11 +113,11 @@ every module standalone-runnable, tested, linted, and committed before the next 
 
 ## Current build state (updated 2026-07-02)
 
-**Last completed module:** M11 — Signal Generation Agent
-**Next module to build:** M12 — Risk & Position Sizing Engine
+**Last completed module:** M12 — Risk & Position Sizing Engine
+**Next module to build:** M13 — Compliance & Regulatory Engine
 
-Verified clean as of this date: 865 unit tests passing (58 skipped: integration tests requiring
-live TimescaleDB/Redis), ruff clean, mypy --strict clean. 123 new M11 unit tests all pass.
+Verified clean as of this date: 973 unit tests passing (58 skipped: integration tests requiring
+live TimescaleDB/Redis), ruff clean, mypy --strict clean. 108 new M12 unit tests all pass.
 
 **M01–M08 independent audit completed 2026-07-01** (commit 1c55be6). All findings resolved:
 - `promote_classifier(backtest_metrics: BacktestMetrics)` — `Any` removed (was S2)
@@ -193,6 +193,17 @@ live TimescaleDB/Redis), ruff clean, mypy --strict clean. 123 new M11 unit tests
 - Signal expiry: `SIGNAL_EXPIRY_MINUTES = 5` — dedup window: `SIGNAL_DEDUP_WINDOW_SECONDS = 60`
 - Signal explain model: `SIGNAL_EXPLAIN_MODEL = "groq/llama-3.1-70b-versatile"`
 - Dedup Lua: `shared/lua/signal_dedup.lua` — returns `{1, "PUBLISHED", entry_id}` / `{0, "HALTED"}` / `{0, "DUPLICATE"}`
+
+**M12 API names:**
+- Risk engine: `RiskEngine().evaluate(entry_price, stop_loss, params)` → `RiskDecision`
+- Risk models: `RiskParameters`, `RiskDecision`, `RiskCheck`, `OpenPosition`, `PositionSize` — `shared/risk/models.py`
+- Sizing: `compute_atr_position_size(capital, entry, sl, base_pct, regime_mult, snapshot)` → `PositionSize`
+- Kelly sizing: `compute_kelly_position_size(capital, entry, sl, win_rate, ratio, regime_mult, snapshot)` → `PositionSize`
+- Correlation guard: `check_correlation_guard(proposed_returns, open_positions)` → `RiskCheck`
+- Circuit breaker: `check_circuit_breaker(daily_pnl, capital, halted)` → `RiskCheck`
+- Redis halted key: `RISK_HALTED_REDIS_KEY = "system:status:halted"` — caller reads, M18 writes
+- Kelly off by default; `use_kelly=True` requires paper-trading validation (RULE 6)
+- 3-5-7 Rule: 3% per-trade, 5% per-sector, 7% portfolio heat — all enforced as hard blocks
 
 ## Tech stack summary
 
