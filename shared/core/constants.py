@@ -116,6 +116,35 @@ RISK_DAILY_TRADES_REDIS_KEY: Final[str] = "risk:daily:trades:{date}"
 MIN_STOP_DISTANCE_PCT: Final[float] = 0.05
 """Minimum stop distance as % of entry price to prevent division-by-zero in sizing."""
 
+# --- Compliance: India force square-off (SEBI) ---
+FORCE_SQUARE_OFF_IST_HOUR: Final[int] = 15
+FORCE_SQUARE_OFF_IST_MINUTE: Final[int] = 10
+"""All positions must be closed by 15:10 IST via the compliance cron (App 1)."""
+
+SNAPSHOT_WINDOW_START_IST_HOUR: Final[int] = 14
+SNAPSHOT_WINDOW_START_IST_MINUTE: Final[int] = 45
+SNAPSHOT_WINDOW_END_IST_HOUR: Final[int] = 15
+SNAPSHOT_WINDOW_END_IST_MINUTE: Final[int] = 30
+
+# --- Compliance: Australia (ASIC) ---
+ASX_POST_CLOSE_CUTOFF_HOUR: Final[int] = 16
+ASX_POST_CLOSE_CUTOFF_MINUTE: Final[int] = 21
+ASX_POST_CLOSE_CUTOFF_SECOND: Final[int] = 30
+"""Positions still open after 16:21:30 AEST are a compliance violation (ASIC)."""
+
+ASX_STAGGERED_OPEN_NOISE_FILTER_MINUTES: Final[int] = 15
+"""Per-ticker 15-min noise filter from ASX group open time (ASIC staggered open)."""
+
+# --- Kill Switch Redis keys ---
+KILL_SWITCH_HALTED_KEY: Final[str] = "system:status:halted"
+"""Alias for RISK_HALTED_REDIS_KEY — set atomically by M13 KillSwitchManager."""
+
+KILL_SWITCH_TIER_KEY: Final[str] = "system:kill_switch:tier"
+"""Records which tier triggered the kill switch (audit trail)."""
+
+KILL_SWITCH_REASON_KEY: Final[str] = "system:kill_switch:reason"
+"""Human-readable reason stored alongside the halt flag (audit trail)."""
+
 # --- Caching / TTLs ---
 PRICE_CACHE_TTL_SECONDS: Final[int] = 5
 INDICATOR_CACHE_TTL_SECONDS: Final[int] = 30

@@ -113,11 +113,11 @@ every module standalone-runnable, tested, linted, and committed before the next 
 
 ## Current build state (updated 2026-07-02)
 
-**Last completed module:** M12 — Risk & Position Sizing Engine
-**Next module to build:** M13 — Compliance & Regulatory Engine
+**Last completed module:** M13 — Compliance & Regulatory Engine
+**Next module to build:** M14 — Order Execution Engine
 
-Verified clean as of this date: 973 unit tests passing (58 skipped: integration tests requiring
-live TimescaleDB/Redis), ruff clean, mypy --strict clean. 108 new M12 unit tests all pass.
+Verified clean as of this date: 1140 unit tests passing (68 skipped: integration tests requiring
+live TimescaleDB/Redis), ruff clean, mypy --strict clean. 163 new M13 unit tests all pass.
 
 **M01–M08 independent audit completed 2026-07-01** (commit 1c55be6). All findings resolved:
 - `promote_classifier(backtest_metrics: BacktestMetrics)` — `Any` removed (was S2)
@@ -204,6 +204,22 @@ live TimescaleDB/Redis), ruff clean, mypy --strict clean. 108 new M12 unit tests
 - Redis halted key: `RISK_HALTED_REDIS_KEY = "system:status:halted"` — caller reads, M18 writes
 - Kelly off by default; `use_kelly=True` requires paper-trading validation (RULE 6)
 - 3-5-7 Rule: 3% per-trade, 5% per-sector, 7% portfolio heat — all enforced as hard blocks
+
+**M13 API names:**
+- Compliance engine: `ComplianceEngine().check(order, now_ist, now_aest, ...)` → `ComplianceDecision`
+- Order model: `OrderIntent` — `shared/compliance/models.py` (imported by M14)
+- Output models: `ComplianceDecision`, `TaggedOrder`, `ComplianceViolation` — `shared/compliance/models.py`
+- Strategy registry: `StrategyRegistry(use_generic)` — `.resolve(strategy_name)` → `str | None`
+- Strategy tags: `STRAT001`–`STRAT005` for the 5 registered strategies; `GENALG01` for generic
+- Kill switch: `KillSwitchManager(redis_client).trigger_tier1/2/3(...)` → `KillSwitchEvent`
+- `KillSwitchEvent.is_priority` is always `True` and only set by `KillSwitchManager` — RULE 8
+- Kill switch Redis keys: `KILL_SWITCH_HALTED_KEY`, `KILL_SWITCH_TIER_KEY`, `KILL_SWITCH_REASON_KEY`
+- India checks: `run_india_checks(order, strategy_tag, now_ist)` → `(violations, eff_type, mpp_price)`
+- Australia checks: `run_australia_checks(order, recent, pending, short_list, now_ms, ...)` → violations
+- MPP price: `compute_mpp_price(order)` — buy: LTP×1.0025, sell: LTP×0.9975
+- Audit log: `log_compliance_pass(...)`, `log_compliance_rejection(...)`, `log_kill_switch(event)`
+- PAPER exchange always passes compliance (simulation mode)
+- M14 reads `KILL_SWITCH_HALTED_KEY` before every broker submission
 
 ## Tech stack summary
 
