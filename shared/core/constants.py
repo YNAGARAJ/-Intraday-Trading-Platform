@@ -605,3 +605,34 @@ IBKR_CONNECTION_TIMEOUT_SECONDS: Final[int] = 10
 
 AUTH_TOKEN_REDIS_KEY_PREFIX: Final[str] = "auth"
 """Redis key namespace for all auth tokens: ``auth:<broker>:<field>``."""
+
+# --- Data Ingestion Agent (M16) ---
+TICK_BUFFER_REDIS_KEY: Final[str] = "ticker:buffer:queue"
+"""Redis List key for the async tick buffer queue. Batch worker reads from here."""
+
+TICK_BUFFER_FLUSH_COUNT: Final[int] = 1_000
+"""Flush the Redis tick queue to TimescaleDB when this many ticks have accumulated."""
+
+TICK_BUFFER_FLUSH_INTERVAL_SECONDS: Final[int] = 5
+"""Maximum seconds between batch flushes even if TICK_BUFFER_FLUSH_COUNT not reached."""
+
+WS_FALLBACK_TIMEOUT_SECONDS: Final[int] = 2
+"""Switch to REST/yfinance fallback if no WebSocket tick arrives within this window.
+RULE 5: WebSocket drop → fallback within 2 seconds."""
+
+INGESTION_DEGRADED_REDIS_KEY: Final[str] = "system:status:degraded"
+"""Redis key (string) set to 'true' when ingestion is in DEGRADED_EXIT_ONLY mode.
+M18 orchestrator checks this before allowing new entry signals."""
+
+TICK_MAX_BACKWARD_MS: Final[int] = 500
+"""Reject ticks whose timestamp is more than this many ms before the last accepted tick
+for the same symbol — guards against feed replay / duplicate delivery."""
+
+TICK_MAX_FUTURE_MS: Final[int] = 2_000
+"""Reject ticks whose timestamp is more than this many ms ahead of wall-clock time."""
+
+CANDLE_INTERVAL_1M: Final[int] = 60
+"""Canonical 1-minute OHLCV candle interval in seconds."""
+
+CANDLE_INTERVAL_5M: Final[int] = 300
+"""Canonical 5-minute OHLCV candle interval in seconds."""
