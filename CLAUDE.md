@@ -113,11 +113,11 @@ every module standalone-runnable, tested, linted, and committed before the next 
 
 ## Current build state (updated 2026-07-02)
 
-**Last completed module:** M13 — Compliance & Regulatory Engine
-**Next module to build:** M14 — Order Execution Engine
+**Last completed module:** M14 — Order Execution Engine
+**Next module to build:** M15 — Authentication & Token Manager
 
-Verified clean as of this date: 1140 unit tests passing (68 skipped: integration tests requiring
-live TimescaleDB/Redis), ruff clean, mypy --strict clean. 163 new M13 unit tests all pass.
+Verified clean as of this date: 1202 unit tests passing (66 new M14 tests), ruff clean,
+mypy --strict clean. 20/20 VERIFY scenarios pass.
 
 **M01–M08 independent audit completed 2026-07-01** (commit 1c55be6). All findings resolved:
 - `promote_classifier(backtest_metrics: BacktestMetrics)` — `Any` removed (was S2)
@@ -220,6 +220,23 @@ live TimescaleDB/Redis), ruff clean, mypy --strict clean. 163 new M13 unit tests
 - Audit log: `log_compliance_pass(...)`, `log_compliance_rejection(...)`, `log_kill_switch(event)`
 - PAPER exchange always passes compliance (simulation mode)
 - M14 reads `KILL_SWITCH_HALTED_KEY` before every broker submission
+
+**M14 API names:**
+- Execution engine: `ExecutionEngine(broker, compliance_engine, dead_letter_queue, redis_client, max_retries, retry_base_delay).submit(order, now_ist, now_aest, ...)` → `FillReport`
+- Fill model: `FillReport` — `shared/execution/models.py`; `sl_quantity` always equals `filled_quantity`
+- Order status: `OrderStatus` enum — PENDING, PLACED, FILLED, PARTIALLY_FILLED, REJECTED, CANCELLED
+- Dead letter: `DeadLetterEntry` — `shared/execution/models.py`
+- Dead-letter queue: `DeadLetterQueue(redis_client).enqueue(...)`, `.peek(n)`, `.size()` — `shared/execution/dead_letter.py`
+- SL exit constructor: `make_sl_exit_order(symbol, exchange, direction, quantity, stop_loss, client_order_id, strategy_name, ltp)` → `OrderIntent(is_priority=True)` — ONE OF TWO authorized setters
+- Kill-switch liq constructor: `make_kill_switch_liquidation_order(symbol, exchange, direction, quantity, ltp, client_order_id, strategy_name)` → `OrderIntent(is_priority=True)` — OTHER authorized setter
+- Broker protocol: `BrokerAdapter` — `place_order(tagged)`, `query_order(coid)`, `cancel_order(coid)` — `shared/execution/brokers/base.py`
+- Broker errors: `BrokerTransientError` (retry), `BrokerPermanentError` (dead-letter) — `shared/execution/brokers/base.py`
+- Paper broker: `PaperBroker(partial_fill_ratio, fail_count)` — `shared/execution/brokers/paper.py`
+- Kite stub: `KiteBroker(kite_client).inject_client(client)` — `shared/execution/brokers/kite.py`
+- IBKR stub: `IBKRBroker(tws_client).inject_client(client)` — `shared/execution/brokers/ibkr.py`
+- Redis halt key: `KILL_SWITCH_HALTED_KEY = "system:status:halted"` — checked before every non-priority submission
+- DLQ Redis key: `DLQ_REDIS_KEY = "dlq:orders"` — append-only list, never deleted
+- Retry constants: `MAX_RETRIES = 3`, `RETRY_BASE_DELAY_SECONDS = 0.5` — `shared/core/constants.py`
 
 ## Tech stack summary
 

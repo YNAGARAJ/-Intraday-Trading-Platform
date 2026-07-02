@@ -1,4 +1,19 @@
-"""Order processing and MPP limit logic -- implemented in M14.
+"""M14 — Order Execution Engine public API."""
 
-Placeholder package created by the M01 scaffold.
-"""
+from shared.execution.dead_letter import DeadLetterQueue
+from shared.execution.engine import (
+    ExecutionEngine,
+    make_kill_switch_liquidation_order,
+    make_sl_exit_order,
+)
+from shared.execution.models import DeadLetterEntry, FillReport, OrderStatus
+
+__all__ = [
+    "DeadLetterEntry",
+    "DeadLetterQueue",
+    "ExecutionEngine",
+    "FillReport",
+    "OrderStatus",
+    "make_kill_switch_liquidation_order",
+    "make_sl_exit_order",
+]
