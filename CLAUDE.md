@@ -113,10 +113,10 @@ every module standalone-runnable, tested, linted, and committed before the next 
 
 ## Current build state (updated 2026-07-02)
 
-**Last completed module:** M20 — Alerting & Notification
-**Next module to build:** M21 — Reporting Module
+**Last completed module:** M21 — Reporting Module
+**Next module to build:** M22 — Dashboard & API
 
-Verified clean as of this date: 1696 unit tests passing (117 new M20 tests), ruff clean,
+Verified clean as of this date: 1823 unit tests passing (127 new M21 tests), ruff clean,
 mypy --strict clean. 20/20 VERIFY scenarios pass.
 
 **M01–M08 independent audit completed 2026-07-01** (commit 1c55be6). All findings resolved:
@@ -327,6 +327,25 @@ mypy --strict clean. 20/20 VERIFY scenarios pass.
 - Cost threshold: `LLM_COST_ALERT_THRESHOLD_USD = 0.80` — alert at 80% of $1/day target
 - Settings: `telegram_bot_token`, `telegram_chat_id`, `smtp_host`, `smtp_port`, `smtp_username`, `smtp_password`, `alert_email_from`, `alert_email_to` — all optional, fail-open
 - Note: fpdf2==2.7.8 installed (pip); must add to pyproject.toml before M23 Docker build
+
+**M21 API names:**
+- Report models: `TradeRecord`, `MarkoutPoint`, `DailyReport`, `MonthlyReport` — `shared/reporting/models.py`
+- Metrics: `compute_sharpe(returns, annualize=True)` → `float | None` — `shared/reporting/metrics.py`
+- Metrics: `compute_sortino(returns, annualize=True)` → `float | None` — `shared/reporting/metrics.py`
+- Metrics: `compute_max_drawdown(returns)` → `float` (fraction, not %) — `shared/reporting/metrics.py`
+- Daily report: `compute_daily_report(report_date, trades, starting_capital)` → `DailyReport` — `shared/reporting/metrics.py`
+- Monthly report: `compute_monthly_report(year, month, daily_reports)` → `MonthlyReport` — `shared/reporting/metrics.py`
+- PDF: `build_daily_pdf(report)` → `bytes`, `build_monthly_pdf(report)` → `bytes` — `shared/reporting/pdf_report.py`
+- HTML: `build_daily_html(report)` → `str`, `build_monthly_html(report)` → `str` — `shared/reporting/html_report.py`
+- CSV export: `trades_to_csv(trades)` → `bytes` (UTF-8) — `shared/reporting/csv_export.py`
+- Excel export: `trades_to_excel(trades, daily_report=None)` → `bytes` (xlsx) — `shared/reporting/csv_export.py`
+- Excel sheets: "Trades" always; "Summary" only when `daily_report` supplied
+- Sharpe formula: `mean(r) / std(r, ddof=1) * sqrt(252)` — `None` if < 2 pts or zero variance
+- Sortino formula: `mean(r) / std(downside_r, ddof=0) * sqrt(252)` — `None` if no negative returns or zero downside std
+- Max drawdown: `(peak - trough) / peak` over cumulative wealth path — fraction
+- Markout curve: only emits `MarkoutPoint` for offsets with ≥ 1 non-None trade value
+- Note: fpdf2 Helvetica is Latin-1 only — em-dashes must not appear in PDF text strings
+- Note: openpyxl==3.1.5 added to pyproject.toml
 
 ## Tech stack summary
 

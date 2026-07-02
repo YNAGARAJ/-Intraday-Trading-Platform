@@ -71,6 +71,7 @@ TA-Lib = "0.6.8"                    # Core technical indicators (M04). DEVIATION
 
 # --- Reporting / dashboard (M21-M22) ---
 fpdf2 = "2.7.8"                     # Daily PDF report generation (M21)
+openpyxl = "3.1.5"                  # Trade-by-trade Excel export (M21)
 streamlit = "1.32.2"                # Operational dashboard UI (M22)
 
 [tool.poetry.group.dev.dependencies]
